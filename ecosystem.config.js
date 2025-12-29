@@ -1,7 +1,7 @@
 module.exports = {
   apps: [{
     name: "chateval",
-    script: "./backend/ChatEval/bin/python",
+    script: "./backend/chateval/bin/python",
     cwd: __dirname,
     args: "-m uvicorn backend.main:app --host 127.0.0.1 --port 8001",
     interpreter: "none"
