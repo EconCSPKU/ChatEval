@@ -134,7 +134,7 @@ async def save_chat(request: SaveRequest, db: Session = Depends(get_db)):
         db.add(msg)
     
     db.commit()
-    return {"conversation_id": conversation.id, "success": True}
+    return {"conversation_id": conversation.id, "success": True, "title": title}
 
 @app.get("/api/history/{user_id}")
 async def get_history(user_id: str, db: Session = Depends(get_db)):

@@ -87,6 +87,9 @@ async function handleFiles(files) {
         renderChart(currentChatData);
         showChatView();
         
+        // Auto-save
+        await saveSession(true);
+        
     } catch (err) {
         alert("Error: " + err.message);
         console.error(err);
@@ -101,24 +104,36 @@ function renderChat(data) {
     let scoredCount = 0;
     
     data.forEach((turn, index) => {
-        const isMe = turn.speaker === 'Me' || turn.speaker === 'A' || turn.speaker.includes('Right'); // Simple heuristic
+        const isMe = turn.speaker === 'Me' || turn.speaker === 'A' || turn.speaker.includes('Right');
         const alignClass = isMe ? 'justify-end' : 'justify-start';
-        const bubbleClass = isMe ? 'chat-bubble-me' : 'chat-bubble-them';
+        // const bubbleClass = isMe ? 'chat-bubble-me' : 'chat-bubble-them'; // Logic replaced by dynamic color
         
-        const scoreDisplay = turn.relevance_score !== null 
-            ? `<div class="text-[10px] opacity-70 mt-1 text-right">Score: ${Math.round(turn.relevance_score)}</div>` 
-            : '';
-            
+        let bgColor = isMe ? '#10b981' : '#27272a'; // Default
+        let textColor = '#e4e4e7';
+        
         if (turn.relevance_score !== null) {
             totalScore += turn.relevance_score;
             scoredCount++;
+            
+            // Color based on score (-5 to 5)
+            // Map -5..5 to Hue 0 (Red) .. 140 (Green)
+            const score = Math.max(-5, Math.min(5, turn.relevance_score));
+            const hue = ((score + 5) / 10) * 120; // 0 to 120
+            bgColor = `hsl(${hue}, 70%, 40%)`;
+            textColor = '#ffffff';
         }
+        
+        const borderRadius = isMe ? '18px 18px 4px 18px' : '18px 18px 18px 4px';
+        
+        const scoreDisplay = turn.relevance_score !== null 
+            ? `<div class="text-[10px] opacity-70 mt-1 text-right">Score: ${turn.relevance_score.toFixed(1)}</div>` 
+            : '';
             
         const html = `
-            <div class="flex ${alignClass} animate-fade-in" style="animation-delay: ${index * 0.05}s">
+            <div class="flex ${alignClass} animate-fade-in mx-auto max-w-3xl w-full" style="animation-delay: ${index * 0.05}s">
                 <div class="max-w-[80%]">
                     <div class="text-[10px] text-zinc-500 mb-1 px-1 ${isMe ? 'text-right' : 'text-left'}">${turn.speaker}</div>
-                    <div class="${bubbleClass} px-4 py-2 text-sm shadow-sm">
+                    <div class="px-4 py-2 text-sm shadow-sm" style="background-color: ${bgColor}; color: ${textColor}; border-radius: ${borderRadius}">
                         ${turn.message}
                         ${scoreDisplay}
                     </div>
@@ -129,39 +144,61 @@ function renderChat(data) {
     });
     
     // Update stats
-    const avg = scoredCount > 0 ? Math.round(totalScore / scoredCount) : 0;
+    const avg = scoredCount > 0 ? (totalScore / scoredCount).toFixed(1) : 0;
     document.getElementById('avg-score').textContent = avg;
     document.getElementById('turn-count').textContent = data.length;
 }
 
 function renderChart(data) {
     const ctx = document.getElementById('scoreChart').getContext('2d');
-    const scores = data.map(d => d.relevance_score);
     const labels = data.map((_, i) => i + 1);
     
+    // Split data
+    const meData = data.map(d => {
+        const isMe = d.speaker === 'Me' || d.speaker === 'A' || d.speaker.includes('Right');
+        return isMe ? d.relevance_score : null;
+    });
+    
+    const themData = data.map(d => {
+        const isMe = d.speaker === 'Me' || d.speaker === 'A' || d.speaker.includes('Right');
+        return !isMe ? d.relevance_score : null;
+    });
+
     if (chartInstance) chartInstance.destroy();
     
     chartInstance = new Chart(ctx, {
         type: 'line',
         data: {
             labels: labels,
-            datasets: [{
-                label: 'Engagement Score',
-                data: scores,
-                borderColor: '#10b981',
-                backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                tension: 0.4,
-                fill: true,
-                pointRadius: 2
-            }]
+            datasets: [
+                {
+                    label: 'Me',
+                    data: meData,
+                    borderColor: '#10b981', // Emerald
+                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                    tension: 0.4,
+                    spanGaps: true,
+                    pointRadius: 3
+                },
+                {
+                    label: 'Them',
+                    data: themData,
+                    borderColor: '#a1a1aa', // Zinc-400
+                    backgroundColor: 'rgba(161, 161, 170, 0.1)',
+                    tension: 0.4,
+                    spanGaps: true,
+                    pointRadius: 3
+                }
+            ]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
             scales: {
                 y: {
-                    beginAtZero: true,
-                    max: 100,
+                    beginAtZero: false,
+                    min: -5,
+                    max: 5,
                     grid: { color: '#27272a' }
                 },
                 x: {
@@ -169,19 +206,19 @@ function renderChart(data) {
                 }
             },
             plugins: {
-                legend: { display: false }
+                legend: { 
+                    display: true,
+                    labels: { color: '#e4e4e7' }
+                }
             }
         }
     });
 }
 
-async function saveSession() {
+async function saveSession(silent = false) {
     if (!currentChatData.length) return;
     
-    const btn = document.getElementById('save-btn');
-    const originalText = btn.innerHTML;
-    btn.innerHTML = '<i class="ph-bold ph-spinner animate-spin"></i> Saving...';
-    btn.disabled = true;
+    const btn = document.getElementById('save-btn'); // Note: This button is hidden now
     
     try {
         const resp = await fetch('/api/save', {
@@ -197,13 +234,15 @@ async function saveSession() {
         if (data.success) {
             currentConversationId = data.conversation_id;
             loadHistory();
-            alert("Session saved!");
+            
+            if (data.title) {
+                document.getElementById('session-title').textContent = data.title;
+            }
+            
+            if (!silent) alert("Session saved!");
         }
     } catch (e) {
-        alert("Failed to save: " + e.message);
-    } finally {
-        btn.innerHTML = originalText;
-        btn.disabled = false;
+        if (!silent) alert("Failed to save: " + e.message);
     }
 }
 
@@ -241,6 +280,10 @@ async function loadConversation(id) {
         currentChatData = data.messages;
         currentConversationId = data.id;
         
+        if (data.title) {
+            document.getElementById('session-title').textContent = data.title;
+        }
+        
         renderChat(currentChatData);
         renderChart(currentChatData);
         showChatView();
@@ -273,6 +316,7 @@ function startNewSession() {
     currentChatData = [];
     currentConversationId = null;
     fileInput.value = ''; // Reset input
+    document.getElementById('session-title').textContent = "New Session";
 }
 
 function toggleSidebar() {

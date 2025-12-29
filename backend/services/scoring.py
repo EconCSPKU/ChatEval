@@ -139,12 +139,12 @@ async def calc_relevant(chat_data):
         
         score = scores_map.get(current_merged_idx, 0.0)
         
-        normalized_score = (score + 5) * 10
-        normalized_score = max(0, min(100, normalized_score))
+        # normalized_score = (score + 5) * 10
+        # normalized_score = max(0, min(100, normalized_score))
         
         if current_merged_idx == 0:
             res.append(None)
         else:
-            res.append(normalized_score)
+            res.append(score)
             
     return res
