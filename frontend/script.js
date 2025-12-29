@@ -72,15 +72,15 @@ async function handleFiles(files) {
         currentChatData = extractData.chat_data;
         currentConversationId = null; 
         
-        // 2. Render Edit Mode (No scoring yet)
-        renderEditMode();
+        // 2. Render Unified (No scoring yet)
+        renderUnifiedChat();
         showChatView();
         
-        // Hide/Show correct buttons
+        // Ensure "Analyze" is visible, "Chart" is placeholder
         document.getElementById('analyze-btn').classList.remove('hidden');
-        document.getElementById('save-btn').classList.add('hidden');
         document.getElementById('chart-placeholder').classList.remove('hidden');
         document.getElementById('scoreChart').classList.add('hidden');
+        document.getElementById('save-btn').classList.add('hidden'); // Hide manual save since we auto-save on analysis
 
     } catch (err) {
         alert("Error: " + err.message);
@@ -105,13 +105,12 @@ async function analyzeSession() {
         if (!scoreResp.ok) throw new Error("Scoring failed");
         const scoreData = await scoreResp.json();
         
-        // 3. Render
+        // 3. Update & Render
         currentChatData = scoreData.chat_data;
-        renderChat(currentChatData);
+        renderUnifiedChat();
         renderChart(currentChatData);
         
         // UI Updates
-        document.getElementById('analyze-btn').classList.add('hidden');
         document.getElementById('chart-placeholder').classList.add('hidden');
         document.getElementById('scoreChart').classList.remove('hidden');
         
@@ -126,36 +125,62 @@ async function analyzeSession() {
     }
 }
 
-function renderEditMode() {
+function renderUnifiedChat() {
     chatContainer.innerHTML = '';
+    let totalScore = 0;
+    let scoredCount = 0;
     
     currentChatData.forEach((turn, index) => {
         const isMe = turn.speaker === 'Me' || turn.speaker === 'A' || turn.speaker.includes('Right');
         const alignClass = isMe ? 'justify-end' : 'justify-start';
-        const bubbleClass = 'bg-zinc-800 text-zinc-300 border border-zinc-700';
         
+        // Default Colors (Edit Mode style)
+        let bgColor = '#27272a'; // Zinc-800
+        let textColor = '#e4e4e7'; // Zinc-200
+        let borderColor = '#3f3f46'; // Zinc-700
+        
+        // Scored Colors (Result Mode style)
+        if (turn.relevance_score !== null && turn.relevance_score !== undefined) {
+            totalScore += turn.relevance_score;
+            scoredCount++;
+            
+            const score = Math.max(-5, Math.min(5, turn.relevance_score));
+            const hue = ((score + 5) / 10) * 120; // 0 (Red) to 120 (Green)
+            bgColor = `hsl(${hue}, 70%, 40%)`;
+            textColor = '#ffffff';
+            borderColor = 'transparent'; // Remove border for colored bubbles
+        }
+        
+        const borderRadius = isMe ? '18px 18px 4px 18px' : '18px 18px 18px 4px';
+        const scoreDisplay = (turn.relevance_score !== null && turn.relevance_score !== undefined)
+            ? `<div class="text-[10px] opacity-70 mt-1 text-right font-mono">Score: ${turn.relevance_score.toFixed(1)}</div>` 
+            : '';
+
         const html = `
-            <div class="flex ${alignClass} w-full max-w-3xl mx-auto group mb-4">
-                 <div class="flex flex-col gap-1 max-w-[90%] w-full">
-                    <!-- Controls Row -->
+            <div class="flex ${alignClass} w-full max-w-3xl mx-auto group mb-4 animate-fade-in" style="animation-delay: ${index * 0.02}s">
+                 <div class="flex flex-col gap-1 max-w-[85%] w-full">
+                    
+                    <!-- Controls Row (Speaker + Actions) -->
                     <div class="flex items-center gap-2 px-1 ${isMe ? 'flex-row-reverse' : 'flex-row'}">
-                         <button onclick="toggleSpeaker(${index})" class="text-[10px] font-bold px-2 py-0.5 rounded cursor-pointer hover:bg-zinc-700 transition-colors ${isMe ? 'bg-primary text-black' : 'bg-zinc-700 text-zinc-300'}">
+                         <button onclick="toggleSpeaker(${index})" class="text-[10px] font-bold px-2 py-0.5 rounded cursor-pointer hover:opacity-80 transition-opacity ${isMe ? 'bg-emerald-500 text-black' : 'bg-zinc-600 text-zinc-300'}">
                             ${turn.speaker}
                          </button>
-                         <div class="opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                         <div class="opacity-0 group-hover:opacity-100 transition-opacity flex gap-1 bg-zinc-900/80 rounded px-1">
                              <button onclick="moveMessage(${index}, -1)" class="p-1 hover:text-white text-zinc-500" title="Move Up"><i class="ph-bold ph-arrow-up"></i></button>
                              <button onclick="moveMessage(${index}, 1)" class="p-1 hover:text-white text-zinc-500" title="Move Down"><i class="ph-bold ph-arrow-down"></i></button>
                              <button onclick="deleteMessage(${index})" class="p-1 hover:text-red-500 text-zinc-500" title="Delete"><i class="ph-bold ph-trash"></i></button>
                          </div>
                     </div>
                     
-                    <!-- Editable Message -->
-                    <div class="w-full">
+                    <!-- Editable Message Bubble -->
+                    <div class="w-full relative transition-colors duration-300" style="background-color: ${bgColor}; border: 1px solid ${borderColor}; border-radius: ${borderRadius}">
                         <textarea onchange="updateMessageText(${index}, this.value)" 
-                            class="w-full bg-zinc-900/50 text-zinc-200 text-sm p-3 rounded-lg border border-transparent hover:border-zinc-700 focus:border-primary focus:outline-none resize-none overflow-hidden"
+                            class="w-full bg-transparent text-sm p-3 focus:outline-none resize-none overflow-hidden block"
                             rows="1" 
-                            style="min-height: 40px"
+                            style="min-height: 40px; color: ${textColor};"
                             oninput="this.style.height = ''; this.style.height = this.scrollHeight + 'px'">${turn.message}</textarea>
+                        
+                        ${scoreDisplay ? `<div class="px-3 pb-2 text-[10px] text-white/70 text-right pointer-events-none">${scoreDisplay}</div>` : ''}
                     </div>
                 </div>
             </div>
@@ -163,104 +188,47 @@ function renderEditMode() {
         chatContainer.insertAdjacentHTML('beforeend', html);
     });
     
-    // Auto-resize textareas
-    document.querySelectorAll('textarea').forEach(tx => {
+    // Auto-resize all textareas
+    document.querySelectorAll('#chat-container textarea').forEach(tx => {
         tx.style.height = tx.scrollHeight + 'px';
     });
     
-    // Reset stats
-    document.getElementById('avg-score').textContent = '--';
+    // Update stats
+    const avg = scoredCount > 0 ? (totalScore / scoredCount).toFixed(1) : '--';
+    document.getElementById('avg-score').textContent = avg;
     document.getElementById('turn-count').textContent = currentChatData.length;
 }
 
 // Edit Actions
 function toggleSpeaker(index) {
     const turn = currentChatData[index];
-    // Simple toggle logic assuming mostly 2 speakers
     if (turn.speaker === 'Me') turn.speaker = 'Them';
     else if (turn.speaker === 'Them') turn.speaker = 'Me';
-    else turn.speaker = (turn.speaker === 'A') ? 'B' : 'A'; // Fallback
+    else turn.speaker = (index % 2 === 0) ? 'Them' : 'Me'; // Fallback
     
-    // Force standardization if needed
-    if (!['Me', 'Them'].includes(turn.speaker)) {
-         turn.speaker = (index % 2 === 0) ? 'Them' : 'Me';
-    }
-    
-    renderEditMode();
+    // We do NOT clear score here, but it might be conceptually "stale". 
+    // User can re-analyze to update.
+    renderUnifiedChat();
 }
 
 function moveMessage(index, direction) {
     const newIndex = index + direction;
     if (newIndex < 0 || newIndex >= currentChatData.length) return;
     
-    // Swap
     const temp = currentChatData[index];
     currentChatData[index] = currentChatData[newIndex];
     currentChatData[newIndex] = temp;
     
-    renderEditMode();
+    renderUnifiedChat();
 }
 
 function deleteMessage(index) {
-    if (confirm("Delete this message?")) {
-        currentChatData.splice(index, 1);
-        renderEditMode();
-    }
+    currentChatData.splice(index, 1);
+    renderUnifiedChat();
 }
 
 function updateMessageText(index, newText) {
     currentChatData[index].message = newText;
-}
-
-function renderChat(data) {
-    chatContainer.innerHTML = '';
-    let totalScore = 0;
-    let scoredCount = 0;
-    
-    data.forEach((turn, index) => {
-        const isMe = turn.speaker === 'Me' || turn.speaker === 'A' || turn.speaker.includes('Right');
-        const alignClass = isMe ? 'justify-end' : 'justify-start';
-        // const bubbleClass = isMe ? 'chat-bubble-me' : 'chat-bubble-them'; // Logic replaced by dynamic color
-        
-        let bgColor = isMe ? '#10b981' : '#27272a'; // Default
-        let textColor = '#e4e4e7';
-        
-        if (turn.relevance_score !== null) {
-            totalScore += turn.relevance_score;
-            scoredCount++;
-            
-            // Color based on score (-5 to 5)
-            // Map -5..5 to Hue 0 (Red) .. 140 (Green)
-            const score = Math.max(-5, Math.min(5, turn.relevance_score));
-            const hue = ((score + 5) / 10) * 120; // 0 to 120
-            bgColor = `hsl(${hue}, 70%, 40%)`;
-            textColor = '#ffffff';
-        }
-        
-        const borderRadius = isMe ? '18px 18px 4px 18px' : '18px 18px 18px 4px';
-        
-        const scoreDisplay = turn.relevance_score !== null 
-            ? `<div class="text-[10px] opacity-70 mt-1 text-right">Score: ${turn.relevance_score.toFixed(1)}</div>` 
-            : '';
-            
-        const html = `
-            <div class="flex ${alignClass} animate-fade-in mx-auto max-w-3xl w-full" style="animation-delay: ${index * 0.05}s">
-                <div class="max-w-[80%]">
-                    <div class="text-[10px] text-zinc-500 mb-1 px-1 ${isMe ? 'text-right' : 'text-left'}">${turn.speaker}</div>
-                    <div class="px-4 py-2 text-sm shadow-sm" style="background-color: ${bgColor}; color: ${textColor}; border-radius: ${borderRadius}">
-                        ${turn.message}
-                        ${scoreDisplay}
-                    </div>
-                </div>
-            </div>
-        `;
-        chatContainer.insertAdjacentHTML('beforeend', html);
-    });
-    
-    // Update stats
-    const avg = scoredCount > 0 ? (totalScore / scoredCount).toFixed(1) : 0;
-    document.getElementById('avg-score').textContent = avg;
-    document.getElementById('turn-count').textContent = data.length;
 }
 
 function renderChart(data) {
@@ -398,10 +366,16 @@ async function loadConversation(id) {
             document.getElementById('session-title').textContent = data.title;
         }
         
-        renderChat(currentChatData);
+        renderUnifiedChat();
         renderChart(currentChatData);
         showChatView();
         
+        // Hide/Show correct buttons
+        document.getElementById('analyze-btn').classList.remove('hidden');
+        document.getElementById('chart-placeholder').classList.add('hidden');
+        document.getElementById('scoreChart').classList.remove('hidden');
+        document.getElementById('save-btn').classList.add('hidden');
+
     } catch (e) {
         alert("Error loading conversation");
     } finally {
