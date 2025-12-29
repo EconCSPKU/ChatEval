@@ -168,6 +168,7 @@ function renderUnifiedChat(focusIndex = -1) {
                          <div class="opacity-0 group-hover:opacity-100 transition-opacity flex gap-1 bg-zinc-900/80 rounded px-1">
                              <button onclick="moveMessage(${index}, -1)" class="p-1 hover:text-white text-zinc-500" title="Move Up"><i class="ph-bold ph-arrow-up"></i></button>
                              <button onclick="moveMessage(${index}, 1)" class="p-1 hover:text-white text-zinc-500" title="Move Down"><i class="ph-bold ph-arrow-down"></i></button>
+                             <button onclick="addMessage(${index + 1})" class="p-1 hover:text-emerald-400 text-zinc-500" title="Add Message Below"><i class="ph-bold ph-plus"></i></button>
                              <button onclick="deleteMessage(${index})" class="p-1 hover:text-red-500 text-zinc-500" title="Delete"><i class="ph-bold ph-trash"></i></button>
                          </div>
                     </div>
@@ -175,9 +176,6 @@ function renderUnifiedChat(focusIndex = -1) {
                     <!-- Editable Message Bubble -->
                     <div class="inline-block transition-colors duration-300" style="background-color: ${bgColor}; border: 1px solid ${borderColor}; border-radius: ${borderRadius}; min-width: 60px;">
                         <textarea 
-                            onkeydown="handleChatKeydown(event, ${index})"
-                            onchange="updateMessageText(${index}, this.value)" 
-                            oninput="autoResize(this)"
                             class="bg-transparent text-sm font-sans leading-relaxed p-3 pb-1 focus:outline-none resize-none block"
                             style="color: ${textColor}; overflow-y: hidden; min-height: 40px; width: 100%;"
                             rows="1">${turn.message}</textarea>
@@ -249,13 +247,6 @@ function autoResize(textarea) {
         textarea.style.overflowX = 'hidden';
         textarea.style.height = 'auto';
         textarea.style.height = textarea.scrollHeight + 'px';
-    }
-}
-
-function handleChatKeydown(event, index) {
-    if (event.key === 'Enter' && !event.shiftKey) {
-        event.preventDefault();
-        addMessage(index + 1);
     }
 }
 
@@ -554,6 +545,9 @@ async function loadConversation(id) {
         document.getElementById('chart-placeholder').classList.add('hidden');
         document.getElementById('scoreChart').classList.remove('hidden');
         document.getElementById('save-btn').classList.add('hidden');
+
+        // Refresh history to update highlighting
+        loadHistory();
 
     } catch (e) {
         alert("Error loading conversation");
