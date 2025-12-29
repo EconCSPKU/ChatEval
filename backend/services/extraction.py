@@ -6,7 +6,7 @@ import asyncio
 
 API_KEY = os.getenv("VOLC_API_KEY")
 BASE_URL = os.getenv("VOLC_BASE_URL")
-MODEL_PATH = "doubao-seed-1-6-flash-250828" # Model name for chat completion
+MODEL_PATH = "doubao-seed-1-6-lite-251015" # Model name for chat completion
 
 Prompt_Template = """Please extract the chat history from the provided image(s) into a JSON list.
 Identify speakers by their bubble color or position (e.g., "Right/Green" is usually "Me", "Left/White/Gray" is "Them").

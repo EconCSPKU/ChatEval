@@ -173,14 +173,13 @@ function renderUnifiedChat() {
                     </div>
                     
                     <!-- Editable Message Bubble -->
-                    <div class="relative transition-colors duration-300 min-w-[60px]" style="background-color: ${bgColor}; border: 1px solid ${borderColor}; border-radius: ${borderRadius}">
-                        <!-- Auto-sizing textarea trick: use a hidden div to push width/height -->
-                        <!-- Matches styling EXACTLY with textarea: font, text size, line height, padding, border -->
-                        <div class="p-3 text-sm font-sans leading-relaxed whitespace-pre-wrap break-words text-transparent pointer-events-none select-none border border-transparent" style="min-height: 40px">${turn.message || ' '}</div>
-                        <textarea onchange="updateMessageText(${index}, this.value)" 
-                            class="absolute inset-0 w-full h-full bg-transparent text-sm font-sans leading-relaxed p-3 focus:outline-none resize-none overflow-hidden whitespace-pre-wrap break-words"
-                            style="color: ${textColor};"
-                            oninput="this.previousElementSibling.innerText = this.value + '\u00a0'">${turn.message}</textarea>
+                    <div class="transition-colors duration-300 min-w-[60px] max-w-full" style="background-color: ${bgColor}; border: 1px solid ${borderColor}; border-radius: ${borderRadius}">
+                        <textarea 
+                            onchange="updateMessageText(${index}, this.value)" 
+                            oninput="autoResize(this)"
+                            class="w-full bg-transparent text-sm font-sans leading-relaxed p-3 focus:outline-none resize-none block"
+                            style="color: ${textColor}; overflow-y: hidden; min-height: 40px;"
+                            rows="1">${turn.message}</textarea>
                         
                         ${scoreDisplay ? `<div class="px-3 pb-2 text-[10px] text-white/70 text-right pointer-events-none select-none">${scoreDisplay}</div>` : ''}
                     </div>
@@ -190,15 +189,21 @@ function renderUnifiedChat() {
         chatContainer.insertAdjacentHTML('beforeend', html);
     });
     
-    // Auto-resize all textareas
-    document.querySelectorAll('#chat-container textarea').forEach(tx => {
-        tx.style.height = tx.scrollHeight + 'px';
+    // Initial resize for all textareas
+    requestAnimationFrame(() => {
+        document.querySelectorAll('#chat-container textarea').forEach(tx => autoResize(tx));
     });
     
     // Update stats
     const avg = scoredCount > 0 ? (totalScore / scoredCount).toFixed(1) : '--';
     document.getElementById('avg-score').textContent = avg;
     document.getElementById('turn-count').textContent = currentChatData.length;
+}
+
+// Auto-resize helper function
+function autoResize(textarea) {
+    textarea.style.height = 'auto';
+    textarea.style.height = textarea.scrollHeight + 'px';
 }
 
 // Edit Actions
