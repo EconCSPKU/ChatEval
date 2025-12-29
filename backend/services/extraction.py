@@ -29,131 +29,104 @@ Example:
 
 client = AsyncOpenAI(api_key=API_KEY, base_url=BASE_URL)
 
-def stitch_images(image_paths):
+def process_image(image_path):
     """
-    Stitches multiple images vertically into one, resizes to max width 1024,
-    and returns base64 string.
+    Resizes and compresses the image to reduce payload size and latency.
     """
-    images = []
     try:
-        for p in image_paths:
-            img = Image.open(p)
+        with Image.open(image_path) as img:
+            # Convert to RGB to handle RGBA (PNG) or P modes
             if img.mode in ("RGBA", "P"):
                 img = img.convert("RGB")
-            images.append(img)
-        
-        if not images:
-            return None
             
-        max_width = 1024
-        resized_imgs = []
-        
-        for img in images:
-            w, h = img.size
-            scale = max_width / w
-            new_h = int(h * scale)
-            resized_imgs.append(img.resize((max_width, new_h)))
+            # Resize if too large (e.g., max dimension 1024)
+            max_size = 1024
+            if max(img.size) > max_size:
+                img.thumbnail((max_size, max_size))
             
-        total_height = sum(img.size[1] for img in resized_imgs)
-        
-        new_img = Image.new('RGB', (max_width, total_height))
-        y_offset = 0
-        for img in resized_imgs:
-            new_img.paste(img, (0, y_offset))
-            y_offset += img.size[1]
-            
-        buffer = io.BytesIO()
-        new_img.save(buffer, format="JPEG", quality=85)
-        return base64.b64encode(buffer.getvalue()).decode('utf-8')
+            # Save to buffer as JPEG
+            buffer = io.BytesIO()
+            img.save(buffer, format="JPEG", quality=85)
+            return base64.b64encode(buffer.getvalue()).decode('utf-8')
     except Exception as e:
-        print(f"Error stitching images: {e}")
+        print(f"Error processing image {image_path}: {e}")
         return None
-    finally:
-        for img in images:
-            try:
-                img.close()
-            except:
-                pass
 
 async def extract_chat_from_images(image_paths):
-    all_results = []
-    # Batch size 5 stitched into 1 image is safer and reduces API requests
-    batch_size = 5
+    base64s = []
+    # We convert all to JPEG
+    
+    # Run blocking file IO in a thread if strictly necessary, but for small files it's ok.
+    # Or better, use aiofiles, but standard open is fine for now as it's fast on SSD.
+    # To be perfectly async safe:
     loop = asyncio.get_event_loop()
     
-    # Process images in batches
-    for i in range(0, len(image_paths), batch_size):
-        batch_paths = image_paths[i : i + batch_size]
-        
-        print(f"Processing batch {i//batch_size + 1}/{(len(image_paths) + batch_size - 1)//batch_size} (stitching {len(batch_paths)} images)...")
-
-        # Stitch images in this batch into a SINGLE base64 image
-        base64_image = None
+    for image_path in image_paths:
         try:
-            base64_image = await loop.run_in_executor(None, stitch_images, batch_paths)
+            # Offload file reading and processing
+            base64_image = await loop.run_in_executor(None, process_image, image_path)
+            if base64_image:
+                base64s.append(base64_image)
         except Exception as e:
-            print(f"Error stitching batch {i}: {e}")
+            print(f"Error encoding image {image_path}: {e}")
             continue
+    
+    if not base64s:
+        return None
 
-        if not base64_image:
-            continue
+    messages = [
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": Prompt_Template},
+            ] +
+            [
+                {
+                    "type": "image_url",
+                    "image_url": {
+                        "url": f"data:image/jpeg;base64,{base64_image}",
+                    },
+                } for base64_image in base64s
+            ],
+        }
+    ]
 
-        messages = [
-            {
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": Prompt_Template},
-                    {
-                        "type": "image_url",
-                        "image_url": {
-                            "url": f"data:image/jpeg;base64,{base64_image}",
-                        },
-                    }
-                ],
-            }
-        ]
-
-        batch_success = False
-        for attempt in range(3):
-            try:
-                response = await client.chat.completions.create(
-                    model=MODEL_PATH,
-                    messages=messages,
-                )
-                chat_content = response.choices[0].message.content
-                if chat_content:
-                    if "```json" in chat_content:
-                        chat_content = chat_content.split("```json")[1].split("```")[0].strip()
-                    elif "```" in chat_content:
-                        chat_content = chat_content.split("```")[1].strip()
+    for attempt in range(3):
+        try:
+            response = await client.chat.completions.create(
+                model=MODEL_PATH,
+                messages=messages,
+            )
+            chat_content = response.choices[0].message.content
+            if chat_content:
+                # Cleaning markdown code blocks if present
+                if "```json" in chat_content:
+                    chat_content = chat_content.split("```json")[1].split("```")[0].strip()
+                elif "```" in chat_content:
+                    chat_content = chat_content.split("```")[1].strip()
+                
+                try:
+                    parsed_json = json.loads(chat_content)
                     
-                    try:
-                        parsed_json = json.loads(chat_content)
-                        
-                        batch_res = []
-                        for line in parsed_json:
-                            speaker = line.get('speaker', 'Unknown')
-                            # Simple heuristic normalization
-                            if any(k in speaker.lower() for k in ["me", "right", "green", "blue", "self"]):
-                                speaker_label = "Me"
-                            elif any(k in speaker.lower() for k in ["them", "left", "white", "gray", "grey", "other"]):
-                                speaker_label = "Them"
-                            else:
-                                speaker_label = speaker # Fallback
-                                
-                            batch_res.append({"speaker": speaker_label, "message": line.get('message', '')})
-                        
-                        if batch_res:
-                            all_results.extend(batch_res)
-                            batch_success = True
-                            break # Success, exit retry loop
-                    except json.JSONDecodeError:
-                        print(f"JSON Parse Error on batch {i} attempt {attempt}: {chat_content[:100]}...")
-            except Exception as e:
-                print(f"API Error on batch {i} attempt {attempt}: {e}")
-                await asyncio.sleep(1) # Small delay between retries
-        
-        if not batch_success:
-            print(f"Failed to extract from batch starting at index {i}")
+                    res = []
+                    for line in parsed_json:
+                        speaker = line.get('speaker', 'Unknown')
+                        # Simple heuristic normalization
+                        if any(k in speaker.lower() for k in ["me", "right", "green", "blue", "self"]):
+                            speaker_label = "Me"
+                        elif any(k in speaker.lower() for k in ["them", "left", "white", "gray", "grey", "other"]):
+                            speaker_label = "Them"
+                        else:
+                            speaker_label = speaker # Fallback
+                            
+                        res.append({"speaker": speaker_label, "message": line.get('message', '')})
+                    
+                    if res:
+                        return res
+                except json.JSONDecodeError:
+                    print(f"JSON Parse Error on attempt {attempt}: {chat_content[:100]}...")
+        except Exception as e:
+            print(f"API Error on attempt {attempt}: {e}")
             
-    return all_results if all_results else None
+    return None
+
