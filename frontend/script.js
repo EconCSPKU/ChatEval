@@ -117,6 +117,11 @@ async function analyzeSession() {
         // Auto-save
         await saveSession(true);
         
+        // Auto-switch to analysis tab on mobile
+        if (window.innerWidth < 1024) {
+            switchTab('analysis');
+        }
+        
     } catch (err) {
         alert("Error: " + err.message);
         console.error(err);
@@ -644,5 +649,34 @@ async function sendFeedback() {
         alert("Feedback submitted. Thank you!");
     } catch (e) {
         alert("Failed to submit feedback.");
+    }
+}
+
+function switchTab(tab) {
+    const chatCol = document.getElementById('mobile-chat-col');
+    const analysisCol = document.getElementById('mobile-analysis-col');
+    const tabChat = document.getElementById('tab-btn-chat');
+    const tabAnalysis = document.getElementById('tab-btn-analysis');
+
+    if (tab === 'chat') {
+        chatCol.classList.remove('hidden');
+        analysisCol.classList.add('hidden');
+        analysisCol.classList.remove('flex');
+        
+        tabChat.classList.add('text-white', 'border-primary');
+        tabChat.classList.remove('text-zinc-400', 'border-transparent');
+        
+        tabAnalysis.classList.remove('text-white', 'border-primary');
+        tabAnalysis.classList.add('text-zinc-400', 'border-transparent');
+    } else {
+        chatCol.classList.add('hidden');
+        analysisCol.classList.remove('hidden');
+        analysisCol.classList.add('flex');
+        
+        tabAnalysis.classList.add('text-white', 'border-primary');
+        tabAnalysis.classList.remove('text-zinc-400', 'border-transparent');
+        
+        tabChat.classList.remove('text-white', 'border-primary');
+        tabChat.classList.add('text-zinc-400', 'border-transparent');
     }
 }
