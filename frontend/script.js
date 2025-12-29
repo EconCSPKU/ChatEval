@@ -125,7 +125,7 @@ async function analyzeSession() {
     }
 }
 
-function renderUnifiedChat() {
+function renderUnifiedChat(focusIndex = -1) {
     chatContainer.innerHTML = '';
     let totalScore = 0;
     let scoredCount = 0;
@@ -175,6 +175,7 @@ function renderUnifiedChat() {
                     <!-- Editable Message Bubble -->
                     <div class="inline-block transition-colors duration-300" style="background-color: ${bgColor}; border: 1px solid ${borderColor}; border-radius: ${borderRadius}; min-width: 60px;">
                         <textarea 
+                            onkeydown="handleChatKeydown(event, ${index})"
                             onchange="updateMessageText(${index}, this.value)" 
                             oninput="autoResize(this)"
                             class="bg-transparent text-sm font-sans leading-relaxed p-3 pb-1 focus:outline-none resize-none block"
@@ -187,6 +188,16 @@ function renderUnifiedChat() {
         `;
         chatContainer.insertAdjacentHTML('beforeend', html);
     });
+    
+    // Focus handling
+    if (focusIndex !== -1) {
+        const textareas = chatContainer.querySelectorAll('textarea');
+        if (textareas[focusIndex]) {
+            // Need a slight delay or just direct focus? Direct usually works if DOM is ready.
+            // But we just insertedHTML.
+            textareas[focusIndex].focus();
+        }
+    }
     
     // Initial resize for all textareas
     requestAnimationFrame(() => {
@@ -239,6 +250,23 @@ function autoResize(textarea) {
         textarea.style.height = 'auto';
         textarea.style.height = textarea.scrollHeight + 'px';
     }
+}
+
+function handleChatKeydown(event, index) {
+    if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault();
+        addMessage(index + 1);
+    }
+}
+
+function addMessage(index) {
+    const newMessage = {
+        speaker: 'Me',
+        message: '',
+        relevance_score: null
+    };
+    currentChatData.splice(index, 0, newMessage);
+    renderUnifiedChat(index);
 }
 
 // Edit Actions
@@ -376,44 +404,109 @@ async function loadHistory() {
         const data = await resp.json();
         
         historyList.innerHTML = '';
+        
+        // Group by title
+        const groups = {};
         data.forEach(item => {
-            // Relative time calculation
-            const now = new Date();
-            // Server returns UTC, but browser parses it as local or UTC depending on string format
-            // Let's ensure we treat it as UTC by appending 'Z' if missing and using getTime()
-            let dateStr = item.date;
-            if (!dateStr.endsWith('Z')) dateStr += 'Z'; 
-            
-            const diff = (now.getTime() - new Date(dateStr).getTime()) / 1000;
-            
-            let timeString;
-            if (diff < 60) timeString = 'Just now';
-            else if (diff < 3600) timeString = `${Math.floor(diff / 60)}m ago`;
-            else if (diff < 86400) timeString = `${Math.floor(diff / 3600)}h ago`;
-            else timeString = new Date(dateStr).toLocaleDateString();
-
-            const isSelected = currentConversationId === item.id;
-            const bgClass = isSelected ? 'bg-zinc-800 ring-1 ring-zinc-700' : 'hover:bg-zinc-800';
-
-            const el = document.createElement('div');
-            el.className = `relative p-3 rounded-lg ${bgClass} cursor-pointer transition-colors group mb-1`;
-            el.innerHTML = `
-                <div class="text-sm font-medium text-zinc-300 group-hover:text-white truncate pr-6">${item.title || 'Untitled Session'}</div>
-                <div class="text-xs text-zinc-500 mt-1 flex justify-between">
-                    <span>${timeString}</span>
-                    <span>${item.message_count} msgs</span>
-                </div>
-                <button onclick="deleteSession(event, ${item.id})" class="absolute top-2 right-2 text-zinc-500 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <i class="ph-bold ph-x"></i>
-                </button>
-            `;
-            el.onclick = (e) => {
-                // Prevent click if delete button was clicked
-                if (e.target.closest('button')) return;
-                loadConversation(item.id);
-            };
-            historyList.appendChild(el);
+            const t = item.title || 'Untitled Session';
+            if (!groups[t]) groups[t] = [];
+            groups[t].push(item);
         });
+
+        // Sort groups by latest date of items inside
+        const sortedTitles = Object.keys(groups).sort((a, b) => {
+            const dateA = new Date(groups[a][0].date).getTime();
+            const dateB = new Date(groups[b][0].date).getTime();
+            return dateB - dateA;
+        });
+
+        sortedTitles.forEach(title => {
+            const items = groups[title];
+            // Verify items are sorted by date desc (API does this, but good to be sure if we modified it)
+            // items.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+            // Container
+            const groupDiv = document.createElement('div');
+            groupDiv.className = 'mb-1';
+            
+            // Header
+            const header = document.createElement('div');
+            header.className = 'p-3 rounded-lg hover:bg-zinc-800 cursor-pointer flex justify-between items-center group transition-colors select-none';
+            header.innerHTML = `
+                <div class="font-medium text-zinc-300 group-hover:text-white truncate flex-1 pr-2">${title}</div>
+                <div class="flex items-center gap-2">
+                    <span class="text-xs text-zinc-500 bg-zinc-900/50 px-1.5 py-0.5 rounded">${items.length}</span>
+                    <i class="ph-bold ph-caret-right text-zinc-500 transform transition-transform duration-200"></i>
+                </div>
+            `;
+            
+            // Sub-list
+            const listContainer = document.createElement('div');
+            listContainer.className = 'hidden ml-3 pl-2 border-l border-zinc-700/50 mt-1 space-y-1';
+            
+            let hasSelected = false;
+
+            items.forEach(item => {
+                // Time calc
+                let dateStr = item.date;
+                if (!dateStr.endsWith('Z')) dateStr += 'Z'; 
+                const diff = (new Date().getTime() - new Date(dateStr).getTime()) / 1000;
+                let timeString;
+                if (diff < 60) timeString = 'Just now';
+                else if (diff < 3600) timeString = `${Math.floor(diff / 60)}m ago`;
+                else if (diff < 86400) timeString = `${Math.floor(diff / 3600)}h ago`;
+                else timeString = new Date(dateStr).toLocaleDateString();
+
+                const isSelected = currentConversationId === item.id;
+                if (isSelected) hasSelected = true;
+                
+                const bgClass = isSelected ? 'bg-zinc-800 text-white ring-1 ring-zinc-700' : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200';
+
+                const itemEl = document.createElement('div');
+                itemEl.className = `relative p-2 rounded text-sm cursor-pointer transition-all ${bgClass} group/item`;
+                itemEl.innerHTML = `
+                    <div class="flex justify-between items-center">
+                        <span>${timeString}</span>
+                        <span class="text-xs opacity-50">${item.message_count} msgs</span>
+                    </div>
+                    <button onclick="deleteSession(event, ${item.id})" class="absolute top-1/2 -translate-y-1/2 right-1 p-1 text-zinc-500 hover:text-red-500 opacity-0 group-hover/item:opacity-100 transition-opacity">
+                        <i class="ph-bold ph-x text-xs"></i>
+                    </button>
+                `;
+                
+                itemEl.onclick = (e) => {
+                    if (e.target.closest('button')) return;
+                    loadConversation(item.id);
+                };
+                
+                listContainer.appendChild(itemEl);
+            });
+
+            // Toggle Logic
+            header.onclick = () => {
+                const isHidden = listContainer.classList.contains('hidden');
+                const icon = header.querySelector('i.ph-caret-right');
+                
+                if (isHidden) {
+                    listContainer.classList.remove('hidden');
+                    icon.style.transform = 'rotate(90deg)';
+                } else {
+                    listContainer.classList.add('hidden');
+                    icon.style.transform = 'rotate(0deg)';
+                }
+            };
+
+            // Auto-expand if selected
+            if (hasSelected) {
+                listContainer.classList.remove('hidden');
+                header.querySelector('i.ph-caret-right').style.transform = 'rotate(90deg)';
+            }
+
+            groupDiv.appendChild(header);
+            groupDiv.appendChild(listContainer);
+            historyList.appendChild(groupDiv);
+        });
+
     } catch (e) {
         console.error("Failed to load history", e);
     }
