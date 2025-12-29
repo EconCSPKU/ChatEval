@@ -176,6 +176,8 @@ function renderUnifiedChat(focusIndex = -1) {
                     <!-- Editable Message Bubble -->
                     <div class="inline-block transition-colors duration-300" style="background-color: ${bgColor}; border: 1px solid ${borderColor}; border-radius: ${borderRadius}; min-width: 60px;">
                         <textarea 
+                            onchange="updateMessageText(${index}, this.value)" 
+                            oninput="autoResize(this)"
                             class="bg-transparent text-sm font-sans leading-relaxed p-3 pb-1 focus:outline-none resize-none block"
                             style="color: ${textColor}; overflow-y: hidden; min-height: 40px; width: 100%;"
                             rows="1">${turn.message}</textarea>
