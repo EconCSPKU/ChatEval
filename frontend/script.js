@@ -175,14 +175,12 @@ function renderUnifiedChat() {
                     <!-- Editable Message Bubble -->
                     <div class="relative transition-colors duration-300 min-w-[60px]" style="background-color: ${bgColor}; border: 1px solid ${borderColor}; border-radius: ${borderRadius}">
                         <!-- Auto-sizing textarea trick: use a hidden div to push width/height -->
-                        <!-- text-transparent to hide double render, but keep layout footprint -->
-                        <!-- whitespace-pre-wrap to respect newlines -->
-                        <!-- break-words to wrap long words -->
-                        <div class="p-3 text-sm whitespace-pre-wrap break-words text-transparent pointer-events-none select-none" style="min-height: 40px; border: 1px solid transparent;">${turn.message || ' '}</div>
+                        <!-- Matches styling EXACTLY with textarea: font, text size, line height, padding, border -->
+                        <div class="p-3 text-sm font-sans leading-relaxed whitespace-pre-wrap break-words text-transparent pointer-events-none select-none border border-transparent" style="min-height: 40px">${turn.message || ' '}</div>
                         <textarea onchange="updateMessageText(${index}, this.value)" 
-                            class="absolute inset-0 w-full h-full bg-transparent text-sm p-3 focus:outline-none resize-none overflow-hidden whitespace-pre-wrap break-words"
+                            class="absolute inset-0 w-full h-full bg-transparent text-sm font-sans leading-relaxed p-3 focus:outline-none resize-none overflow-hidden whitespace-pre-wrap break-words"
                             style="color: ${textColor};"
-                            oninput="this.previousElementSibling.textContent = this.value + ' '">${turn.message}</textarea>
+                            oninput="this.previousElementSibling.innerText = this.value + '\u00a0'">${turn.message}</textarea>
                         
                         ${scoreDisplay ? `<div class="px-3 pb-2 text-[10px] text-white/70 text-right pointer-events-none select-none">${scoreDisplay}</div>` : ''}
                     </div>
@@ -354,8 +352,11 @@ async function loadHistory() {
             else if (diff < 86400) timeString = `${Math.floor(diff / 3600)}h ago`;
             else timeString = new Date(dateStr).toLocaleDateString();
 
+            const isSelected = currentConversationId === item.id;
+            const bgClass = isSelected ? 'bg-zinc-800 ring-1 ring-zinc-700' : 'hover:bg-zinc-800';
+
             const el = document.createElement('div');
-            el.className = 'relative p-3 rounded-lg hover:bg-zinc-800 cursor-pointer transition-colors group';
+            el.className = `relative p-3 rounded-lg ${bgClass} cursor-pointer transition-colors group mb-1`;
             el.innerHTML = `
                 <div class="text-sm font-medium text-zinc-300 group-hover:text-white truncate pr-6">${item.title || 'Untitled Session'}</div>
                 <div class="text-xs text-zinc-500 mt-1 flex justify-between">
