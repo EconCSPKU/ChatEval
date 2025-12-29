@@ -555,6 +555,12 @@ async function deleteSession(event, id) {
 }
 
 async function loadConversation(id) {
+    if (window.innerWidth < 768) {
+        const sidebar = document.getElementById('sidebar');
+        if (!sidebar.classList.contains('hidden')) {
+            sidebar.classList.add('hidden');
+        }
+    }
     setLoading(true, "Loading session...");
     try {
         const resp = await fetch(`/api/conversation/${id}`);
@@ -613,6 +619,12 @@ function startNewSession() {
 
 function toggleSidebar() {
     document.getElementById('sidebar').classList.toggle('hidden');
+    const sidebar = document.getElementById('sidebar');
+    const isHidden = sidebar.classList.contains('hidden');
+    sidebar.classList.toggle('hidden');
+    setTimeout(() => {
+        document.querySelectorAll('#chat-container textarea').forEach(tx => autoResize(tx));
+    }, 100);
 }
 
 // Feedback
