@@ -3,6 +3,8 @@ import base64
 import json
 import os
 import asyncio
+import io
+from PIL import Image
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -11,26 +13,48 @@ BASE_URL = os.getenv("VOLC_BASE_URL")
 MODEL_PATH = "doubao-seed-1-6-lite-251015" # Model name for chat completion
 
 Prompt_Template = """Please extract the chat history from the provided image(s) into a JSON list.
-Identify speakers by their bubble color or position (e.g., "Right/Green" is usually "Me", "Left/White/Gray" is "Them").
-Ignore system messages (like timestamps, "Today", "read").
+1. Identify speakers by their bubble color or position (e.g., "Right/Green" is usually "Me", "Left/White/Gray" is "Them").
+2. Ignore background wallpapers/images. Focus on the chat bubbles and text.
+3. If a message is a sticker, emoji, or image without text, output "[Sticker]" or a brief description in brackets.
+4. Ignore system messages (like timestamps, "Today", "read").
 
 Return ONLY a valid JSON array of objects with "speaker" (mapped to "Me" or "Them" if possible, otherwise describe it) and "message".
 Example:
 [
   {"speaker": "Me", "message": "Hello"},
-  {"speaker": "Them", "message": "Hi there!"}
+  {"speaker": "Them", "message": "Hi there!"},
+  {"speaker": "Them", "message": "[Sticker]"}
 ]
 """
 
 client = AsyncOpenAI(api_key=API_KEY, base_url=BASE_URL)
 
-def encode_image_to_base64(image_path):
-    with open(image_path, "rb") as image_file:
-        return base64.b64encode(image_file.read()).decode('utf-8')
+def process_image(image_path):
+    """
+    Resizes and compresses the image to reduce payload size and latency.
+    """
+    try:
+        with Image.open(image_path) as img:
+            # Convert to RGB to handle RGBA (PNG) or P modes
+            if img.mode in ("RGBA", "P"):
+                img = img.convert("RGB")
+            
+            # Resize if too large (e.g., max dimension 1024)
+            max_size = 1024
+            if max(img.size) > max_size:
+                img.thumbnail((max_size, max_size))
+            
+            # Save to buffer as JPEG
+            buffer = io.BytesIO()
+            img.save(buffer, format="JPEG", quality=85)
+            return base64.b64encode(buffer.getvalue()).decode('utf-8')
+    except Exception as e:
+        print(f"Error processing image {image_path}: {e}")
+        return None
 
 async def extract_chat_from_images(image_paths):
     base64s = []
-    image_formats = []
+    # We convert all to JPEG
     
     # Run blocking file IO in a thread if strictly necessary, but for small files it's ok.
     # Or better, use aiofiles, but standard open is fine for now as it's fast on SSD.
@@ -39,13 +63,16 @@ async def extract_chat_from_images(image_paths):
     
     for image_path in image_paths:
         try:
-            # Offload file reading
-            base64_image = await loop.run_in_executor(None, encode_image_to_base64, image_path)
-            base64s.append(base64_image)
-            image_formats.append(image_path.split('.')[-1])
+            # Offload file reading and processing
+            base64_image = await loop.run_in_executor(None, process_image, image_path)
+            if base64_image:
+                base64s.append(base64_image)
         except Exception as e:
             print(f"Error encoding image {image_path}: {e}")
-            return None
+            continue
+    
+    if not base64s:
+        return None
 
     messages = [
         {
@@ -57,9 +84,9 @@ async def extract_chat_from_images(image_paths):
                 {
                     "type": "image_url",
                     "image_url": {
-                        "url": f"data:image/{image_formats[i]};base64,{base64s[i]}",
+                        "url": f"data:image/jpeg;base64,{base64_image}",
                     },
-                } for i in range(len(image_paths))
+                } for base64_image in base64s
             ],
         }
     ]
