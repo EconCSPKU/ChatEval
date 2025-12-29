@@ -18,6 +18,8 @@ Prompt_Template = """Please extract the chat history from the provided image(s) 
 3. If a message is a sticker, emoji, or image without text, output "[Sticker]" or a brief description in brackets.
 4. Ignore system messages (like timestamps, "Today", "read").
 
+Note: The image might be compressed. Rely on the relative position (Left vs Right) as the primary indicator for speakers, and color as a secondary confirmation.
+
 Return ONLY a valid JSON array of objects with "speaker" (mapped to "Me" or "Them" if possible, otherwise describe it) and "message".
 Example:
 [
@@ -31,41 +33,34 @@ client = AsyncOpenAI(api_key=API_KEY, base_url=BASE_URL)
 
 def process_image(image_path):
     """
-    Resizes and compresses the image to reduce payload size and latency.
-    Target size: < 200KB.
+    Optimized for Chat Screenshots:
+    1. Fixes the 'Long Screenshot' bug by resizing based on width only.
+    2. Removes the slow 'while' loop in favor of a direct heuristic approach.
+    3. Keeps file size typically < 150KB while maintaining text clarity.
     """
     try:
         with Image.open(image_path) as img:
-            # Convert to RGB to handle RGBA (PNG) or P modes
+            # Handle transparency/modes
             if img.mode in ("RGBA", "P"):
                 img = img.convert("RGB")
             
-            # Initial Resize
-            max_size = 1024
-            if max(img.size) > max_size:
-                img.thumbnail((max_size, max_size))
+            target_width = 768
+            original_width, original_height = img.size
             
-            # Compression loop
-            target_size = 200 * 1024
-            quality = 85
+            if original_width > target_width:
+                aspect_ratio = original_height / original_width
+                new_height = int(target_width * aspect_ratio)
+                img = img.resize((target_width, new_height), Image.Resampling.LANCZOS)
+            
             buffer = io.BytesIO()
-            img.save(buffer, format="JPEG", quality=quality)
+            img.save(buffer, format="JPEG", quality=65, optimize=True)
             
-            while buffer.tell() > target_size:
+            if buffer.tell() > 200 * 1024:
                 buffer = io.BytesIO()
-                if quality > 50:
-                    quality -= 10
-                    img.save(buffer, format="JPEG", quality=quality)
-                elif max_size > 512:
-                    max_size = int(max_size * 0.8)
-                    img.thumbnail((max_size, max_size))
-                    img.save(buffer, format="JPEG", quality=quality)
-                else:
-                    # If quality is low and size is small, just break to avoid destroying image
-                    img.save(buffer, format="JPEG", quality=quality)
-                    break
+                img.save(buffer, format="JPEG", quality=50, optimize=True)
 
             return base64.b64encode(buffer.getvalue()).decode('utf-8')
+            
     except Exception as e:
         print(f"Error processing image {image_path}: {e}")
         return None
