@@ -618,7 +618,6 @@ function startNewSession() {
 }
 
 function toggleSidebar() {
-    document.getElementById('sidebar').classList.toggle('hidden');
     const sidebar = document.getElementById('sidebar');
     sidebar.classList.toggle('hidden');
     setTimeout(() => {
