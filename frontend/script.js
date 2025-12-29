@@ -48,6 +48,15 @@ document.addEventListener('DOMContentLoaded', () => {
     fileInput.addEventListener('change', (e) => {
         handleFiles(e.target.files);
     });
+
+    // Handle resize to adjust bubble widths
+    let resizeTimeout;
+    window.addEventListener('resize', () => {
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(() => {
+            document.querySelectorAll('#chat-container textarea').forEach(tx => autoResize(tx));
+        }, 100);
+    });
 });
 
 async function handleFiles(files) {
@@ -219,6 +228,9 @@ function renderUnifiedChat(focusIndex = -1) {
 function autoResize(textarea) {
     const bubble = textarea.parentElement; // Get the bubble container
     
+    // Calculate dynamic max width: smaller of 450px or 85% of screen width
+    const maxWidth = Math.min(450, window.innerWidth * 0.85);
+
     // Create a hidden measurement element
     const measure = document.createElement('div');
     measure.style.cssText = `
@@ -230,7 +242,7 @@ function autoResize(textarea) {
         font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; /* font-sans */
         line-height: 1.625; /* leading-relaxed */
         padding: 12px 12px 4px 12px; /* p-3 pb-1 */
-        max-width: 450px;
+        max-width: ${maxWidth}px;
         display: inline-block;
         border: 1px solid transparent; /* Match textarea border width impact */
     `;
