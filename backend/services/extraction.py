@@ -53,11 +53,11 @@ def process_image(image_path):
                 img = img.resize((target_width, new_height), Image.Resampling.LANCZOS)
             
             buffer = io.BytesIO()
-            img.save(buffer, format="JPEG", quality=65, optimize=True)
+            img.save(buffer, format="WEBP", quality=65, optimize=True)
             
             if buffer.tell() > 200 * 1024:
                 buffer = io.BytesIO()
-                img.save(buffer, format="JPEG", quality=50, optimize=True)
+                img.save(buffer, format="WEBP", quality=50, optimize=True)
 
             return base64.b64encode(buffer.getvalue()).decode('utf-8')
             
