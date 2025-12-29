@@ -153,12 +153,12 @@ function renderUnifiedChat() {
         
         const borderRadius = isMe ? '18px 18px 4px 18px' : '18px 18px 18px 4px';
         const scoreDisplay = (turn.relevance_score !== null && turn.relevance_score !== undefined)
-            ? `<div class="text-[10px] opacity-70 mt-1 text-right font-mono">Score: ${turn.relevance_score.toFixed(1)}</div>` 
+            ? `<div class="px-3 pb-1 text-[10px] text-white/70 text-right pointer-events-none select-none">Score: ${turn.relevance_score.toFixed(1)}</div>` 
             : '';
 
         const html = `
             <div class="flex ${alignClass} w-full max-w-3xl mx-auto group mb-4 animate-fade-in" style="animation-delay: ${index * 0.02}s">
-                 <div class="flex flex-col gap-1 max-w-[85%] ${isMe ? 'items-end' : 'items-start'}">
+                 <div class="flex flex-col gap-1 ${isMe ? 'items-end' : 'items-start'}">
                     
                     <!-- Controls Row (Speaker + Actions) -->
                     <div class="flex items-center gap-2 px-1 ${isMe ? 'flex-row-reverse' : 'flex-row'}">
@@ -173,15 +173,14 @@ function renderUnifiedChat() {
                     </div>
                     
                     <!-- Editable Message Bubble -->
-                    <div class="transition-colors duration-300 min-w-[60px] max-w-full" style="background-color: ${bgColor}; border: 1px solid ${borderColor}; border-radius: ${borderRadius}">
+                    <div class="inline-block transition-colors duration-300" style="background-color: ${bgColor}; border: 1px solid ${borderColor}; border-radius: ${borderRadius}; min-width: 60px;">
                         <textarea 
                             onchange="updateMessageText(${index}, this.value)" 
                             oninput="autoResize(this)"
-                            class="w-full bg-transparent text-sm font-sans leading-relaxed p-3 focus:outline-none resize-none block"
-                            style="color: ${textColor}; overflow-y: hidden; min-height: 40px;"
+                            class="bg-transparent text-sm font-sans leading-relaxed p-3 pb-1 focus:outline-none resize-none block"
+                            style="color: ${textColor}; overflow-y: hidden; min-height: 40px; width: 100%;"
                             rows="1">${turn.message}</textarea>
-                        
-                        ${scoreDisplay ? `<div class="px-3 pb-2 text-[10px] text-white/70 text-right pointer-events-none select-none">${scoreDisplay}</div>` : ''}
+                        ${scoreDisplay}
                     </div>
                 </div>
             </div>
@@ -200,10 +199,46 @@ function renderUnifiedChat() {
     document.getElementById('turn-count').textContent = currentChatData.length;
 }
 
-// Auto-resize helper function
+// Auto-resize helper function with dynamic width support
 function autoResize(textarea) {
-    textarea.style.height = 'auto';
-    textarea.style.height = textarea.scrollHeight + 'px';
+    const bubble = textarea.parentElement; // Get the bubble container
+    
+    // Create a hidden measurement element
+    const measure = document.createElement('div');
+    measure.style.cssText = `
+        position: absolute;
+        visibility: hidden;
+        white-space: nowrap;
+        font-size: 14px;
+        font-family: Inter, sans-serif;
+        line-height: 1.5;
+        padding: 12px 12px 4px 12px;
+        pointer-events: none;
+    `;
+    measure.textContent = textarea.value || 'A'; // Use 'A' as minimum content
+    document.body.appendChild(measure);
+    
+    const naturalWidth = measure.offsetWidth;
+    const maxWidth = 450; // Maximum width before wrapping
+    const minWidth = 60; // Minimum bubble width
+    
+    document.body.removeChild(measure);
+    
+    // Determine mode based on content width
+    if (naturalWidth <= maxWidth) {
+        // Single-line mode: dynamic width, fixed height
+        bubble.style.width = Math.max(naturalWidth, minWidth) + 'px';
+        textarea.style.whiteSpace = 'nowrap';
+        textarea.style.overflowX = 'hidden';
+        textarea.style.height = '40px';
+    } else {
+        // Multi-line mode: fixed width, dynamic height
+        bubble.style.width = maxWidth + 'px';
+        textarea.style.whiteSpace = 'pre-wrap';
+        textarea.style.overflowX = 'hidden';
+        textarea.style.height = 'auto';
+        textarea.style.height = textarea.scrollHeight + 'px';
+    }
 }
 
 // Edit Actions
