@@ -111,14 +111,19 @@ async def save_chat(request: SaveRequest, db: Session = Depends(get_db)):
         db.add(user)
         db.commit()
     
-    # 2. Create Conversation
+    # 2. Always Create New Conversation (Fix: "Analyze should create new record")
     # Default title if not provided: First message content (truncated)
     title = request.title
     if not title and request.chat_data:
         first_msg = request.chat_data[0].message
         title = (first_msg[:30] + '..') if len(first_msg) > 30 else first_msg
-        
-    conversation = Conversation(user_id=request.user_id, title=title)
+    
+    # Force UTC now for correct ordering
+    conversation = Conversation(
+        user_id=request.user_id, 
+        title=title,
+        created_at=datetime.utcnow() 
+    )
     db.add(conversation)
     db.commit() # Commit to get ID
     

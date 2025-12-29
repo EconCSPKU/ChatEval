@@ -175,13 +175,16 @@ function renderUnifiedChat() {
                     <!-- Editable Message Bubble -->
                     <div class="relative transition-colors duration-300 min-w-[60px]" style="background-color: ${bgColor}; border: 1px solid ${borderColor}; border-radius: ${borderRadius}">
                         <!-- Auto-sizing textarea trick: use a hidden div to push width/height -->
-                        <div class="invisible p-3 text-sm whitespace-pre-wrap" style="min-height: 40px">${turn.message}</div>
+                        <!-- text-transparent to hide double render, but keep layout footprint -->
+                        <!-- whitespace-pre-wrap to respect newlines -->
+                        <!-- break-words to wrap long words -->
+                        <div class="p-3 text-sm whitespace-pre-wrap break-words text-transparent pointer-events-none select-none" style="min-height: 40px; border: 1px solid transparent;">${turn.message || ' '}</div>
                         <textarea onchange="updateMessageText(${index}, this.value)" 
-                            class="absolute inset-0 w-full h-full bg-transparent text-sm p-3 focus:outline-none resize-none overflow-hidden"
+                            class="absolute inset-0 w-full h-full bg-transparent text-sm p-3 focus:outline-none resize-none overflow-hidden whitespace-pre-wrap break-words"
                             style="color: ${textColor};"
-                            oninput="this.previousElementSibling.textContent = this.value">${turn.message}</textarea>
+                            oninput="this.previousElementSibling.textContent = this.value + ' '">${turn.message}</textarea>
                         
-                        ${scoreDisplay ? `<div class="px-3 pb-2 text-[10px] text-white/70 text-right pointer-events-none">${scoreDisplay}</div>` : ''}
+                        ${scoreDisplay ? `<div class="px-3 pb-2 text-[10px] text-white/70 text-right pointer-events-none select-none">${scoreDisplay}</div>` : ''}
                     </div>
                 </div>
             </div>
@@ -337,12 +340,19 @@ async function loadHistory() {
         historyList.innerHTML = '';
         data.forEach(item => {
             // Relative time calculation
-            const diff = (new Date() - new Date(item.date)) / 1000;
+            const now = new Date();
+            // Server returns UTC, but browser parses it as local or UTC depending on string format
+            // Let's ensure we treat it as UTC by appending 'Z' if missing and using getTime()
+            let dateStr = item.date;
+            if (!dateStr.endsWith('Z')) dateStr += 'Z'; 
+            
+            const diff = (now.getTime() - new Date(dateStr).getTime()) / 1000;
+            
             let timeString;
             if (diff < 60) timeString = 'Just now';
             else if (diff < 3600) timeString = `${Math.floor(diff / 60)}m ago`;
             else if (diff < 86400) timeString = `${Math.floor(diff / 3600)}h ago`;
-            else timeString = new Date(item.date).toLocaleDateString();
+            else timeString = new Date(dateStr).toLocaleDateString();
 
             const el = document.createElement('div');
             el.className = 'relative p-3 rounded-lg hover:bg-zinc-800 cursor-pointer transition-colors group';
