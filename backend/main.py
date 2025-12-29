@@ -33,11 +33,6 @@ app.add_middleware(
 # But first, we need to handle the API routes, then catch-all for frontend or just '/'
 app.mount("/static", StaticFiles(directory="../frontend"), name="static")
 
-# Ensure temp directory exists for static mounting
-if not os.path.exists("temp_uploads"):
-    os.makedirs("temp_uploads")
-app.mount("/temp_images", StaticFiles(directory="temp_uploads"), name="temp_images")
-
 @app.get("/")
 async def read_index():
     return FileResponse("../frontend/index.html")
@@ -83,11 +78,7 @@ async def extract_chat(images: List[UploadFile] = File(...)):
                 shutil.copyfileobj(image.file, buffer)
             file_paths.append(file_path)
             
-        # Construct URLs for the images
-        # Assumes deployment at https://chat.elicit.info/
-        image_urls = [f"https://chat.elicit.info/temp_images/{os.path.basename(p)}" for p in file_paths]
-        
-        chat_data = await extract_chat_from_images(image_urls)
+        chat_data = await extract_chat_from_images(file_paths)
         
         if chat_data is None:
             raise HTTPException(status_code=500, detail="Failed to extract chat from images")

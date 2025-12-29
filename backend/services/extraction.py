@@ -1,7 +1,10 @@
 from openai import AsyncOpenAI
+import base64
 import json
 import os
 import asyncio
+import io
+from PIL import Image
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -26,8 +29,67 @@ Example:
 
 client = AsyncOpenAI(api_key=API_KEY, base_url=BASE_URL)
 
-async def extract_chat_from_images(image_urls):
-    if not image_urls:
+def process_image(image_path):
+    """
+    Resizes and compresses the image to reduce payload size and latency.
+    Target size: < 200KB.
+    """
+    try:
+        with Image.open(image_path) as img:
+            # Convert to RGB to handle RGBA (PNG) or P modes
+            if img.mode in ("RGBA", "P"):
+                img = img.convert("RGB")
+            
+            # Initial Resize
+            max_size = 1024
+            if max(img.size) > max_size:
+                img.thumbnail((max_size, max_size))
+            
+            # Compression loop
+            target_size = 200 * 1024
+            quality = 85
+            buffer = io.BytesIO()
+            img.save(buffer, format="JPEG", quality=quality)
+            
+            while buffer.tell() > target_size:
+                buffer = io.BytesIO()
+                if quality > 50:
+                    quality -= 10
+                    img.save(buffer, format="JPEG", quality=quality)
+                elif max_size > 512:
+                    max_size = int(max_size * 0.8)
+                    img.thumbnail((max_size, max_size))
+                    img.save(buffer, format="JPEG", quality=quality)
+                else:
+                    # If quality is low and size is small, just break to avoid destroying image
+                    img.save(buffer, format="JPEG", quality=quality)
+                    break
+
+            return base64.b64encode(buffer.getvalue()).decode('utf-8')
+    except Exception as e:
+        print(f"Error processing image {image_path}: {e}")
+        return None
+
+async def extract_chat_from_images(image_paths):
+    base64s = []
+    # We convert all to JPEG
+    
+    # Run blocking file IO in a thread if strictly necessary, but for small files it's ok.
+    # Or better, use aiofiles, but standard open is fine for now as it's fast on SSD.
+    # To be perfectly async safe:
+    loop = asyncio.get_event_loop()
+    
+    for image_path in image_paths:
+        try:
+            # Offload file reading and processing
+            base64_image = await loop.run_in_executor(None, process_image, image_path)
+            if base64_image:
+                base64s.append(base64_image)
+        except Exception as e:
+            print(f"Error encoding image {image_path}: {e}")
+            continue
+    
+    if not base64s:
         return None
 
     messages = [
@@ -40,9 +102,9 @@ async def extract_chat_from_images(image_urls):
                 {
                     "type": "image_url",
                     "image_url": {
-                        "url": url,
+                        "url": f"data:image/jpeg;base64,{base64_image}",
                     },
-                } for url in image_urls
+                } for base64_image in base64s
             ],
         }
     ]
