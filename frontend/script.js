@@ -69,12 +69,37 @@ async function handleFiles(files) {
         if (!extractResp.ok) throw new Error("Extraction failed");
         const extractData = await extractResp.json();
         
+        currentChatData = extractData.chat_data;
+        currentConversationId = null; 
+        
+        // 2. Render Edit Mode (No scoring yet)
+        renderEditMode();
+        showChatView();
+        
+        // Hide/Show correct buttons
+        document.getElementById('analyze-btn').classList.remove('hidden');
+        document.getElementById('save-btn').classList.add('hidden');
+        document.getElementById('chart-placeholder').classList.remove('hidden');
+        document.getElementById('scoreChart').classList.add('hidden');
+
+    } catch (err) {
+        alert("Error: " + err.message);
+        console.error(err);
+    } finally {
+        setLoading(false);
+    }
+}
+
+async function analyzeSession() {
+    if (!currentChatData || currentChatData.length === 0) return;
+
+    setLoading(true, "Analyzing engagement...");
+    try {
         // 2. Score
-        setLoading(true, "Analyzing engagement...");
         const scoreResp = await fetch('/api/score', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ chat_data: extractData.chat_data })
+            body: JSON.stringify({ chat_data: currentChatData })
         });
         
         if (!scoreResp.ok) throw new Error("Scoring failed");
@@ -82,10 +107,13 @@ async function handleFiles(files) {
         
         // 3. Render
         currentChatData = scoreData.chat_data;
-        currentConversationId = null; // New session
         renderChat(currentChatData);
         renderChart(currentChatData);
-        showChatView();
+        
+        // UI Updates
+        document.getElementById('analyze-btn').classList.add('hidden');
+        document.getElementById('chart-placeholder').classList.add('hidden');
+        document.getElementById('scoreChart').classList.remove('hidden');
         
         // Auto-save
         await saveSession(true);
@@ -96,6 +124,92 @@ async function handleFiles(files) {
     } finally {
         setLoading(false);
     }
+}
+
+function renderEditMode() {
+    chatContainer.innerHTML = '';
+    
+    currentChatData.forEach((turn, index) => {
+        const isMe = turn.speaker === 'Me' || turn.speaker === 'A' || turn.speaker.includes('Right');
+        const alignClass = isMe ? 'justify-end' : 'justify-start';
+        const bubbleClass = 'bg-zinc-800 text-zinc-300 border border-zinc-700';
+        
+        const html = `
+            <div class="flex ${alignClass} w-full max-w-3xl mx-auto group mb-4">
+                 <div class="flex flex-col gap-1 max-w-[90%] w-full">
+                    <!-- Controls Row -->
+                    <div class="flex items-center gap-2 px-1 ${isMe ? 'flex-row-reverse' : 'flex-row'}">
+                         <button onclick="toggleSpeaker(${index})" class="text-[10px] font-bold px-2 py-0.5 rounded cursor-pointer hover:bg-zinc-700 transition-colors ${isMe ? 'bg-primary text-black' : 'bg-zinc-700 text-zinc-300'}">
+                            ${turn.speaker}
+                         </button>
+                         <div class="opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                             <button onclick="moveMessage(${index}, -1)" class="p-1 hover:text-white text-zinc-500" title="Move Up"><i class="ph-bold ph-arrow-up"></i></button>
+                             <button onclick="moveMessage(${index}, 1)" class="p-1 hover:text-white text-zinc-500" title="Move Down"><i class="ph-bold ph-arrow-down"></i></button>
+                             <button onclick="deleteMessage(${index})" class="p-1 hover:text-red-500 text-zinc-500" title="Delete"><i class="ph-bold ph-trash"></i></button>
+                         </div>
+                    </div>
+                    
+                    <!-- Editable Message -->
+                    <div class="w-full">
+                        <textarea onchange="updateMessageText(${index}, this.value)" 
+                            class="w-full bg-zinc-900/50 text-zinc-200 text-sm p-3 rounded-lg border border-transparent hover:border-zinc-700 focus:border-primary focus:outline-none resize-none overflow-hidden"
+                            rows="1" 
+                            style="min-height: 40px"
+                            oninput="this.style.height = ''; this.style.height = this.scrollHeight + 'px'">${turn.message}</textarea>
+                    </div>
+                </div>
+            </div>
+        `;
+        chatContainer.insertAdjacentHTML('beforeend', html);
+    });
+    
+    // Auto-resize textareas
+    document.querySelectorAll('textarea').forEach(tx => {
+        tx.style.height = tx.scrollHeight + 'px';
+    });
+    
+    // Reset stats
+    document.getElementById('avg-score').textContent = '--';
+    document.getElementById('turn-count').textContent = currentChatData.length;
+}
+
+// Edit Actions
+function toggleSpeaker(index) {
+    const turn = currentChatData[index];
+    // Simple toggle logic assuming mostly 2 speakers
+    if (turn.speaker === 'Me') turn.speaker = 'Them';
+    else if (turn.speaker === 'Them') turn.speaker = 'Me';
+    else turn.speaker = (turn.speaker === 'A') ? 'B' : 'A'; // Fallback
+    
+    // Force standardization if needed
+    if (!['Me', 'Them'].includes(turn.speaker)) {
+         turn.speaker = (index % 2 === 0) ? 'Them' : 'Me';
+    }
+    
+    renderEditMode();
+}
+
+function moveMessage(index, direction) {
+    const newIndex = index + direction;
+    if (newIndex < 0 || newIndex >= currentChatData.length) return;
+    
+    // Swap
+    const temp = currentChatData[index];
+    currentChatData[index] = currentChatData[newIndex];
+    currentChatData[newIndex] = temp;
+    
+    renderEditMode();
+}
+
+function deleteMessage(index) {
+    if (confirm("Delete this message?")) {
+        currentChatData.splice(index, 1);
+        renderEditMode();
+    }
+}
+
+function updateMessageText(index, newText) {
+    currentChatData[index].message = newText;
 }
 
 function renderChat(data) {
