@@ -3,7 +3,7 @@ module.exports = {
     name: "chateval",
     script: "python3",
     cwd: "./backend",
-    args: "-m uvicorn server.main:app --host 127.0.0.1 --port 8001",
+    args: "-m uvicorn main:app --host 127.0.0.1 --port 8000",
     interpreter: "none"
   }]
 }
