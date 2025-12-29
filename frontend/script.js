@@ -620,7 +620,6 @@ function startNewSession() {
 function toggleSidebar() {
     document.getElementById('sidebar').classList.toggle('hidden');
     const sidebar = document.getElementById('sidebar');
-    const isHidden = sidebar.classList.contains('hidden');
     sidebar.classList.toggle('hidden');
     setTimeout(() => {
         document.querySelectorAll('#chat-container textarea').forEach(tx => autoResize(tx));
