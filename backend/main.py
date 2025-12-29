@@ -78,7 +78,7 @@ async def extract_chat(images: List[UploadFile] = File(...)):
                 shutil.copyfileobj(image.file, buffer)
             file_paths.append(file_path)
             
-        chat_data = extract_chat_from_images(file_paths)
+        chat_data = await extract_chat_from_images(file_paths)
         
         if chat_data is None:
             raise HTTPException(status_code=500, detail="Failed to extract chat from images")

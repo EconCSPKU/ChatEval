@@ -1,7 +1,8 @@
 // State
 let userId = localStorage.getItem('chateval_user_id');
 if (!userId) {
-    userId = 'user_' + Math.random().toString(36).substr(2, 9);
+    // Generate 8-char hex string (e.g., 6504b65f)
+    userId = Math.random().toString(16).substr(2, 8);
     localStorage.setItem('chateval_user_id', userId);
 }
 
