@@ -217,42 +217,57 @@ function autoResize(textarea) {
     measure.style.cssText = `
         position: absolute;
         visibility: hidden;
-        white-space: nowrap;
-        font-size: 14px;
-        font-family: Inter, sans-serif;
-        line-height: 1.5;
-        padding: 12px 12px 4px 12px;
-        pointer-events: none;
+        white-space: pre-wrap;
+        word-break: break-word;
+        font-size: 14px; /* text-sm */
+        font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; /* font-sans */
+        line-height: 1.625; /* leading-relaxed */
+        padding: 12px 12px 4px 12px; /* p-3 pb-1 */
+        max-width: 450px;
+        display: inline-block;
+        border: 1px solid transparent; /* Match textarea border width impact */
     `;
-    measure.textContent = textarea.value || 'A'; // Use 'A' as minimum content
+    
+    // Handle trailing newlines to ensure height calculation is correct
+    measure.textContent = textarea.value + (textarea.value.endsWith('\n') ? '\u200b' : '');
+    
     document.body.appendChild(measure);
     
     const naturalWidth = measure.offsetWidth;
-    const maxWidth = 450; // Maximum width before wrapping
-    const minWidth = 60; // Minimum bubble width
+    const naturalHeight = measure.offsetHeight;
     
     document.body.removeChild(measure);
     
-    // Determine mode based on content width
-    if (naturalWidth <= maxWidth) {
-        // Single-line mode: dynamic width, fixed height
-        bubble.style.width = Math.max(naturalWidth, minWidth) + 'px';
-        textarea.style.whiteSpace = 'nowrap';
-        textarea.style.overflowX = 'hidden';
-        textarea.style.height = '40px';
-    } else {
-        // Multi-line mode: fixed width, dynamic height
-        bubble.style.width = maxWidth + 'px';
-        textarea.style.whiteSpace = 'pre-wrap';
-        textarea.style.overflowX = 'hidden';
-        textarea.style.height = 'auto';
-        textarea.style.height = textarea.scrollHeight + 'px';
-    }
+    const minWidth = 60; 
+    
+    // Apply dimensions
+    // Width: Natural width of content, capped by max-width (implicit in measure), min 60px
+    // We add a small buffer (2px) to prevent potential wrapping differences
+    bubble.style.width = Math.max(naturalWidth + 2, minWidth) + 'px';
+    
+    // Height: Natural height
+    textarea.style.height = naturalHeight + 'px';
+    
+    // Ensure textarea allows wrapping
+    textarea.style.whiteSpace = 'pre-wrap';
+    textarea.style.overflowX = 'hidden';
 }
 
 function addMessage(index) {
+    let newSpeaker = 'Me';
+    
+    // Auto-switch speaker based on the previous message to facilitate dialogue flow
+    if (index > 0) {
+        const prevTurn = currentChatData[index - 1];
+        if (prevTurn) {
+            // If previous was 'Me', next should be 'Them', and vice versa.
+            if (prevTurn.speaker === 'Me') newSpeaker = 'Them';
+            else if (prevTurn.speaker === 'Them') newSpeaker = 'Me';
+        }
+    }
+
     const newMessage = {
-        speaker: 'Me',
+        speaker: newSpeaker,
         message: '',
         relevance_score: null
     };
