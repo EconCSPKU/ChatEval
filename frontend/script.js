@@ -188,11 +188,11 @@ function renderUnifiedChat(focusIndex = -1) {
                     </div>
                     
                     <!-- Editable Message Bubble -->
-                    <div class="inline-block transition-colors duration-300" style="background-color: ${bgColor}; border: 1px solid ${borderColor}; border-radius: ${borderRadius}; min-width: 60px;">
+                    <div class="inline-block transition-colors duration-300 max-w-full break-words" style="background-color: ${bgColor}; border: 1px solid ${borderColor}; border-radius: ${borderRadius}; min-width: 60px;">
                         <textarea 
                             onchange="updateMessageText(${index}, this.value)" 
                             oninput="autoResize(this)"
-                            class="bg-transparent text-sm font-sans leading-relaxed p-3 pb-1 focus:outline-none resize-none block"
+                            class="bg-transparent text-sm font-sans leading-relaxed p-3 pb-1 focus:outline-none resize-none block break-words"
                             style="color: ${textColor}; overflow-y: hidden; min-height: 40px; width: 100%;"
                             rows="1">${turn.message}</textarea>
                         ${scoreDisplay}
@@ -224,50 +224,47 @@ function renderUnifiedChat(focusIndex = -1) {
     document.getElementById('turn-count').textContent = currentChatData.length;
 }
 
-// Auto-resize helper function with dynamic width support
 function autoResize(textarea) {
-    const bubble = textarea.parentElement; // Get the bubble container
+    const bubble = textarea.parentElement;
+    const styles = window.getComputedStyle(textarea);
     
-    // Calculate dynamic max width: smaller of 450px or 85% of screen width
-    const maxWidth = Math.min(450, window.innerWidth * 0.85);
+    const containerPadding = 60; 
+    const maxWidth = Math.min(450, window.innerWidth - containerPadding);
 
-    // Create a hidden measurement element
     const measure = document.createElement('div');
     measure.style.cssText = `
         position: absolute;
         visibility: hidden;
         white-space: pre-wrap;
-        word-break: break-word;
-        font-size: 14px; /* text-sm */
-        font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; /* font-sans */
-        line-height: 1.625; /* leading-relaxed */
-        padding: 12px 12px 4px 12px; /* p-3 pb-1 */
-        max-width: ${maxWidth}px;
+        word-break: break-word; /* 确保长单词换行 */
+        overflow-wrap: break-word; /* 兼容性增强 */
         display: inline-block;
-        border: 1px solid transparent; /* Match textarea border width impact */
+        border: ${styles.border};
+        box-sizing: border-box;
+        font-family: ${styles.fontFamily};
+        font-size: ${styles.fontSize};
+        font-weight: ${styles.fontWeight};
+        letter-spacing: ${styles.letterSpacing};
+        line-height: ${styles.lineHeight};
+        padding: ${styles.paddingTop} ${styles.paddingRight} ${styles.paddingBottom} ${styles.paddingLeft};
+        max-width: ${maxWidth}px;
     `;
     
-    // Handle trailing newlines to ensure height calculation is correct
     measure.textContent = textarea.value + (textarea.value.endsWith('\n') ? '\u200b' : '');
-    
     document.body.appendChild(measure);
     
-    const naturalWidth = measure.offsetWidth;
-    const naturalHeight = measure.offsetHeight;
+    const rect = measure.getBoundingClientRect();
+    const naturalWidth = rect.width;
+    const naturalHeight = rect.height;
     
     document.body.removeChild(measure);
     
     const minWidth = 60; 
+    const finalWidth = Math.min(Math.ceil(naturalWidth) + 5, maxWidth);
     
-    // Apply dimensions
-    // Width: Natural width of content, capped by max-width (implicit in measure), min 60px
-    // We add a small buffer (2px) to prevent potential wrapping differences
-    bubble.style.width = Math.max(naturalWidth + 2, minWidth) + 'px';
+    bubble.style.width = Math.max(finalWidth, minWidth) + 'px';
+    textarea.style.height = Math.ceil(naturalHeight) + 'px';
     
-    // Height: Natural height
-    textarea.style.height = naturalHeight + 'px';
-    
-    // Ensure textarea allows wrapping
     textarea.style.whiteSpace = 'pre-wrap';
     textarea.style.overflowX = 'hidden';
 }
