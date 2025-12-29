@@ -3,6 +3,8 @@ import base64
 import json
 import os
 import asyncio
+from dotenv import load_dotenv
+load_dotenv()
 
 API_KEY = os.getenv("VOLC_API_KEY")
 BASE_URL = os.getenv("VOLC_BASE_URL")

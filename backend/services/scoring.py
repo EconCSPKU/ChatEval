@@ -4,6 +4,8 @@ import numpy as np
 from openai import AsyncOpenAI
 import asyncio
 import os
+from dotenv import load_dotenv
+load_dotenv()
 
 # Configuration
 API_KEY = os.getenv("VOLC_API_KEY")
