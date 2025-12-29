@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+sqlalchemy
+python-multipart
+torch
+numpy
+openai
+python-dotenv
+aiofiles
