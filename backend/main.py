@@ -138,7 +138,12 @@ async def save_chat(request: SaveRequest, db: Session = Depends(get_db)):
 
 @app.get("/api/history/{user_id}")
 async def get_history(user_id: str, db: Session = Depends(get_db)):
-    conversations = db.query(Conversation).filter(Conversation.user_id == user_id).order_by(Conversation.created_at.desc()).all()
+    # Filter out deleted conversations (is_deleted != 1)
+    conversations = db.query(Conversation).filter(
+        Conversation.user_id == user_id, 
+        (Conversation.is_deleted == 0) | (Conversation.is_deleted == None)
+    ).order_by(Conversation.created_at.desc()).all()
+    
     res = []
     for conv in conversations:
         # Get message count or preview?
@@ -151,8 +156,21 @@ async def get_history(user_id: str, db: Session = Depends(get_db)):
         })
     return res
 
+@app.delete("/api/conversation/{conversation_id}")
+async def delete_conversation(conversation_id: int, db: Session = Depends(get_db)):
+    conv = db.query(Conversation).filter(Conversation.id == conversation_id).first()
+    if not conv:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+        
+    # Soft delete
+    conv.is_deleted = 1
+    db.commit()
+    return {"success": True}
+
 @app.get("/api/conversation/{conversation_id}")
 async def get_conversation(conversation_id: int, db: Session = Depends(get_db)):
+    # Note: We still allow loading deleted conversations if you have the ID, 
+    # but the History list won't show them.
     conv = db.query(Conversation).filter(Conversation.id == conversation_id).first()
     if not conv:
         raise HTTPException(status_code=404, detail="Conversation not found")
@@ -178,3 +196,4 @@ async def submit_feedback(request: FeedbackRequest, db: Session = Depends(get_db
     db.add(fb)
     db.commit()
     return {"success": True}
+

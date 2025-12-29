@@ -158,7 +158,7 @@ function renderUnifiedChat() {
 
         const html = `
             <div class="flex ${alignClass} w-full max-w-3xl mx-auto group mb-4 animate-fade-in" style="animation-delay: ${index * 0.02}s">
-                 <div class="flex flex-col gap-1 max-w-[85%] w-full">
+                 <div class="flex flex-col gap-1 max-w-[85%] ${isMe ? 'items-end' : 'items-start'}">
                     
                     <!-- Controls Row (Speaker + Actions) -->
                     <div class="flex items-center gap-2 px-1 ${isMe ? 'flex-row-reverse' : 'flex-row'}">
@@ -173,12 +173,13 @@ function renderUnifiedChat() {
                     </div>
                     
                     <!-- Editable Message Bubble -->
-                    <div class="w-full relative transition-colors duration-300" style="background-color: ${bgColor}; border: 1px solid ${borderColor}; border-radius: ${borderRadius}">
+                    <div class="relative transition-colors duration-300 min-w-[60px]" style="background-color: ${bgColor}; border: 1px solid ${borderColor}; border-radius: ${borderRadius}">
+                        <!-- Auto-sizing textarea trick: use a hidden div to push width/height -->
+                        <div class="invisible p-3 text-sm whitespace-pre-wrap" style="min-height: 40px">${turn.message}</div>
                         <textarea onchange="updateMessageText(${index}, this.value)" 
-                            class="w-full bg-transparent text-sm p-3 focus:outline-none resize-none overflow-hidden block"
-                            rows="1" 
-                            style="min-height: 40px; color: ${textColor};"
-                            oninput="this.style.height = ''; this.style.height = this.scrollHeight + 'px'">${turn.message}</textarea>
+                            class="absolute inset-0 w-full h-full bg-transparent text-sm p-3 focus:outline-none resize-none overflow-hidden"
+                            style="color: ${textColor};"
+                            oninput="this.previousElementSibling.textContent = this.value">${turn.message}</textarea>
                         
                         ${scoreDisplay ? `<div class="px-3 pb-2 text-[10px] text-white/70 text-right pointer-events-none">${scoreDisplay}</div>` : ''}
                     </div>
@@ -335,21 +336,55 @@ async function loadHistory() {
         
         historyList.innerHTML = '';
         data.forEach(item => {
-            const date = new Date(item.date).toLocaleDateString();
+            // Relative time calculation
+            const diff = (new Date() - new Date(item.date)) / 1000;
+            let timeString;
+            if (diff < 60) timeString = 'Just now';
+            else if (diff < 3600) timeString = `${Math.floor(diff / 60)}m ago`;
+            else if (diff < 86400) timeString = `${Math.floor(diff / 3600)}h ago`;
+            else timeString = new Date(item.date).toLocaleDateString();
+
             const el = document.createElement('div');
-            el.className = 'p-3 rounded-lg hover:bg-zinc-800 cursor-pointer transition-colors group';
+            el.className = 'relative p-3 rounded-lg hover:bg-zinc-800 cursor-pointer transition-colors group';
             el.innerHTML = `
-                <div class="text-sm font-medium text-zinc-300 group-hover:text-white truncate">${item.title || 'Untitled Session'}</div>
+                <div class="text-sm font-medium text-zinc-300 group-hover:text-white truncate pr-6">${item.title || 'Untitled Session'}</div>
                 <div class="text-xs text-zinc-500 mt-1 flex justify-between">
-                    <span>${date}</span>
+                    <span>${timeString}</span>
                     <span>${item.message_count} msgs</span>
                 </div>
+                <button onclick="deleteSession(event, ${item.id})" class="absolute top-2 right-2 text-zinc-500 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <i class="ph-bold ph-x"></i>
+                </button>
             `;
-            el.onclick = () => loadConversation(item.id);
+            el.onclick = (e) => {
+                // Prevent click if delete button was clicked
+                if (e.target.closest('button')) return;
+                loadConversation(item.id);
+            };
             historyList.appendChild(el);
         });
     } catch (e) {
         console.error("Failed to load history", e);
+    }
+}
+
+async function deleteSession(event, id) {
+    event.stopPropagation();
+    if (!confirm("Remove this session from history?")) return;
+    
+    try {
+        const resp = await fetch(`/api/conversation/${id}`, { method: 'DELETE' });
+        if (resp.ok) {
+            loadHistory();
+            // If current open session is deleted, go to new session
+            if (currentConversationId === id) {
+                startNewSession();
+            }
+        } else {
+            alert("Failed to delete session");
+        }
+    } catch (e) {
+        alert("Error deleting session");
     }
 }
 

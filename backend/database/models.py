@@ -17,6 +17,7 @@ class Conversation(Base):
     user_id = Column(String, ForeignKey('users.id'))
     created_at = Column(DateTime, default=datetime.utcnow)
     title = Column(String, nullable=True) # Optional title, e.g., first message
+    is_deleted = Column(Integer, default=0) # 0: visible, 1: deleted
     
     user = relationship("User", back_populates="conversations")
     messages = relationship("Message", back_populates="conversation")

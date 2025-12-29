@@ -8,17 +8,15 @@ API_KEY = os.getenv("VOLC_API_KEY")
 BASE_URL = os.getenv("VOLC_BASE_URL")
 MODEL_PATH = "doubao-seed-1-6-lite-251015" # Model name for chat completion
 
-Prompt_Template = """Please extract all conversational turns from the provided image. For each turn, identify the speaker (group by chat bubble color) and the full text of their message, including any descriptions of stickers or emojis if they convey meaning, ignoring the avatars. Present the extracted content as a list of dictionaries, where each dictionary represents a single chat turn. Each dictionary should have the following keys:
+Prompt_Template = """Please extract the chat history from the provided image(s) into a JSON list.
+Identify speakers by their bubble color or position (e.g., "Right/Green" is usually "Me", "Left/White/Gray" is "Them").
+Ignore system messages (like timestamps, "Today", "read").
 
-- "speaker": A string identifying the speaker (e.g., "Green Bubble", "White Bubble", "Gray Small Bubble").
-- "message": A string containing the full text of the message, with sticker descriptions in parentheses (e.g., "Hello! (waving hand sticker)").
-
-Example output format:
-
+Return ONLY a valid JSON array of objects with "speaker" (mapped to "Me" or "Them" if possible, otherwise describe it) and "message".
+Example:
 [
-    {"speaker": "Green Bubble", "message": "Hi there!"},
-    {"speaker": "White Bubble", "message": "How are you? (smiling face emoji)"},
-    {"speaker": "Green Bubble", "message": "I'm good, thanks!"}
+  {"speaker": "Me", "message": "Hello"},
+  {"speaker": "Them", "message": "Hi there!"}
 ]
 """
 
@@ -84,12 +82,13 @@ async def extract_chat_from_images(image_paths):
                     res = []
                     for line in parsed_json:
                         speaker = line.get('speaker', 'Unknown')
-                        if "Green" in speaker or "Right" in speaker:
+                        # Simple heuristic normalization
+                        if any(k in speaker.lower() for k in ["me", "right", "green", "blue", "self"]):
                             speaker_label = "Me"
-                        elif "White" in speaker or "Left" in speaker:
+                        elif any(k in speaker.lower() for k in ["them", "left", "white", "gray", "grey", "other"]):
                             speaker_label = "Them"
                         else:
-                            speaker_label = speaker
+                            speaker_label = speaker # Fallback
                             
                         res.append({"speaker": speaker_label, "message": line.get('message', '')})
                     
