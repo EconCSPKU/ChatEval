@@ -4,8 +4,8 @@ import json
 import os
 import asyncio
 
-API_KEY = os.getenv("VOLC_API_KEY", "4c79b992-4487-4fb9-baec-73715fbe9fef")
-BASE_URL = os.getenv("VOLC_BASE_URL", "https://ark.cn-beijing.volces.com/api/v3")
+API_KEY = os.getenv("VOLC_API_KEY")
+BASE_URL = os.getenv("VOLC_BASE_URL")
 MODEL_PATH = "doubao-seed-1-6-flash-250615" # Model name for chat completion
 
 Prompt_Template = """Please extract all conversational turns from the provided image. For each turn, identify the speaker (group by chat bubble color) and the full text of their message, including any descriptions of stickers or emojis if they convey meaning, ignoring the avatars. Present the extracted content as a list of dictionaries, where each dictionary represents a single chat turn. Each dictionary should have the following keys:

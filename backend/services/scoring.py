@@ -6,8 +6,8 @@ import asyncio
 import os
 
 # Configuration
-API_KEY = os.getenv("VOLC_API_KEY", "4c79b992-4487-4fb9-baec-73715fbe9fef")
-BASE_URL = os.getenv("VOLC_BASE_URL", "https://ark.cn-beijing.volces.com/api/v3")
+API_KEY = os.getenv("VOLC_API_KEY")
+BASE_URL = os.getenv("VOLC_BASE_URL")
 MODEL_NAME = "doubao-embedding-large-text-250515"
 
 # Path to the PyTorch model
@@ -53,8 +53,8 @@ async def get_api_embeddings(batch_sentences):
     except Exception as e:
         print(f"Error calling embedding API: {e}")
         return [None] * len(batch_sentences)
-
-def proc_prompts(chat_data):
+        
+async def proc_prompts(chat_data):
     context = ""
     allprompts = []
     
@@ -75,18 +75,12 @@ def proc_prompts(chat_data):
             context += "\n"
         context += response
     
-    # The first item has no context, but the logic in old code implies it might be skipped or handled?
-    # Checking old logic: "for i in range(len(chat_data) - 1): ... res.append(None)" for first items usually?
-    # Old code: 
-    # new_data constructed by merging same speaker.
-    # embeddings = proc_prompts(new_data) -> calls API for len(new_data)-1 items (since i > 0 condition).
-    
     if not allprompts:
         return []
 
-    return asyncio.run(get_api_embeddings(allprompts))
-
-def calc_relevant(chat_data):
+    return await get_api_embeddings(allprompts)
+# 修改前：def calc_relevant(chat_data):
+async def calc_relevant(chat_data):
     # 1. Preprocess: Merge consecutive messages from same speaker
     if not chat_data:
         return []
@@ -102,8 +96,9 @@ def calc_relevant(chat_data):
             })
             
     # 2. Get embeddings
-    # proc_prompts generates prompts for items 1 to N (skipping 0 as it has no context)
-    embeddings = proc_prompts(new_data)
+    # 修改前：embeddings = proc_prompts(new_data)
+    # 修改后：添加 await
+    embeddings = await proc_prompts(new_data)
     
     if not embeddings or None in embeddings:
         print("Error: Failed to get embeddings")
@@ -111,7 +106,7 @@ def calc_relevant(chat_data):
 
     embedding_tensor = torch.tensor(embeddings, dtype=torch.float32)
     
-    # 3. Load Model
+    # 3. Load Model (Load logic remains same...)
     try:
         model = ScoringNetwork(input_size=embedding_tensor.shape[-1])
         model.load_state_dict(torch.load(MODEL_PATH, map_location='cpu'))
@@ -130,103 +125,23 @@ def calc_relevant(chat_data):
     else:
         output = output.tolist()
 
-    # 5. Map back to original messages
-    # The scoring model gives scores for transitions. 
-    # new_data[0] -> No score (start)
-    # new_data[1] -> Score based on context(0) + response(1)
-    # ...
-    
-    # Output array corresponds to new_data[1:]
-    
-    final_scores = []
-    
-    # Logic from old utils.py seems to be:
-    # res = [None]
-    # cnt = -1
-    # for i in range(len(chat_data) - 1):
-    #   if speaker change:
-    #       cnt += 1
-    #       res.append(output[cnt])
-    #   else:
-    #       res.append(None)
-    # res.append(output[cnt])
-    
-    # Re-implementing mapping logic carefully
-    
-    # Map merged_index back to original indices
-    # new_data[k] corresponds to a group of original messages.
-    # The score output[k-1] corresponds to new_data[k].
-    
-    # Let's align with the old logic's intent: assign score to the *response* that triggered the evaluation.
-    # If merged, the score applies to the whole block? Or the last message?
-    # Old logic maps scores back to the *boundaries* where speaker changes.
-    
-    # Let's simplify:
-    # Create a mapping from original index to merged index
-    
-    res = []
-    
-    # Pointer to the current score index in `output`
-    # output has length len(new_data) - 1
-    score_idx = 0
-    
-    # Pointer to new_data index
-    # We start comparing from the second group because the first group has no context score
-    current_merged_idx = 0 
-    
-    # Need to verify if the first group ever gets a score? No, usually not.
-    
-    # Re-reading old logic:
-    # cnt = -1 (corresponds to output index)
-    # Loop i from 0 to len-2:
-    #   If chat_data[i] speaker != chat_data[i+1] speaker:
-    #       # This implies a turn change.
-    #       # The score at 'cnt' belongs to the PREVIOUS turn?
-    #       if cnt >= 0: res.append(output[cnt])
-    #       cnt += 1 
-    #   else:
-    #       res.append(None)
-    
-    # This old logic is slightly confusing. Let's stick to the behavior:
-    # Assign score to the messages.
-    
-    # Simplified approach for this refactor:
-    # 1. Assign scores to the `new_data` items (except the first).
-    # 2. Propagate that score to all original messages composing that `new_data` item.
-    
-    # output array matches new_data[1:]
-    
-    scores_map = {} # merged_idx -> score
+    # 5. Map back to original messages (Logic remains same...)
+    scores_map = {} 
     for idx, score in enumerate(output):
-        scores_map[idx + 1] = float(score) # idx 0 in output corresponds to new_data[1]
+        scores_map[idx + 1] = float(score)
         
-    # Now walk through original data and assign
     current_merged_idx = 0
     res = []
     
-    # Determine merged boundaries again
-    processed_count = 0
     for i in range(len(chat_data)):
         if i > 0 and chat_data[i]['speaker'] != chat_data[i-1]['speaker']:
             current_merged_idx += 1
         
-        score = scores_map.get(current_merged_idx, 0.0) # Default to 0 or None if start
-        
-        # Scaling: Model returns [-5, 5]. Map to [0, 100]? 
-        # Old code: return self.sigmoid(x) * 10 - 5.
-        # Wait, the prompt says "0 to 100". The model output seems to be in a different scale?
-        # Old prompt: "0 to 100".
-        # Model output layer: Sigmoid * 10 - 5 -> Range (-5, 5).
-        # This is inconsistent. 
-        # However, `calc_relevant` returns `output` directly. 
-        # If the user wants 0-100, I should probably normalize it.
-        # -5 -> 0, 5 -> 100.
-        # score_100 = (score + 5) * 10
+        score = scores_map.get(current_merged_idx, 0.0)
         
         normalized_score = (score + 5) * 10
         normalized_score = max(0, min(100, normalized_score))
         
-        # First turn usually has no score (contextless).
         if current_merged_idx == 0:
             res.append(None)
         else:

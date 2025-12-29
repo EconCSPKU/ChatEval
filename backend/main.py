@@ -94,7 +94,7 @@ async def extract_chat(images: List[UploadFile] = File(...)):
 async def score_chat(request: ScoreRequest):
     data = [turn.dict() for turn in request.chat_data]
     try:
-        scores = calc_relevant(data)
+        scores = await calc_relevant(data)
         # Update scores
         for i, turn in enumerate(request.chat_data):
             turn.relevance_score = scores[i]
