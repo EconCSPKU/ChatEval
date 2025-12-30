@@ -9,7 +9,7 @@ load_dotenv()
 # OpenRouter Configuration
 API_KEY = os.getenv("OPENROUTER_API_KEY")
 BASE_URL = "https://openrouter.ai/api/v1"
-MODEL_PATH = "google/gemini-2.5-flash-lite-preview-02-05" # Fast & Multimodal
+MODEL_PATH = "google/gemini-3-flash-preview" # Fast & Multimodal
 
 # System Prompt: Defines role and strict rules
 System_Prompt = """You are a specialized OCR engine for chat screenshots.
