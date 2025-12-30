@@ -761,7 +761,7 @@ function switchTab(tab) {
 async function exportLongImage() {
     if (!currentChatData || currentChatData.length === 0) return;
     
-    setLoading(true, "Generating image...");
+    setLoading(true, "Generating image (v3)...");
     
     // Create temporary container
     const tempContainer = document.createElement('div');
@@ -770,10 +770,10 @@ async function exportLongImage() {
     tempContainer.style.top = '0';
     tempContainer.style.width = '480px'; // Mobile-ish width
     tempContainer.style.backgroundColor = '#09090b';
-    tempContainer.style.padding = '8px 24px 24px 24px';
+    tempContainer.style.padding = '0px 24px 24px 24px';
     tempContainer.style.display = 'flex';
     tempContainer.style.flexDirection = 'column';
-    tempContainer.style.gap = '16px';
+    tempContainer.style.gap = '12px';
     tempContainer.style.fontFamily = "'Inter', sans-serif";
     document.body.appendChild(tempContainer);
     
@@ -781,7 +781,7 @@ async function exportLongImage() {
         // 1. Header with Link
         const header = document.createElement('div');
         header.innerHTML = `
-            <div class="flex flex-col gap-1 mb-4 border-b border-zinc-800 pb-2">
+            <div class="flex flex-col gap-1 mb-2 border-b border-zinc-800 pb-2">
                 <div class="flex items-center justify-between">
                     <div class="text-xl font-semibold text-white">ChatEval Analysis</div>
                     <div class="text-xs text-zinc-500">${new Date().toLocaleDateString()}</div>
@@ -796,7 +796,7 @@ async function exportLongImage() {
         const count = document.getElementById('turn-count').textContent;
         
         const statsEl = document.createElement('div');
-        statsEl.className = "mb-8 p-4 bg-zinc-900 rounded-xl border border-zinc-800";
+        statsEl.className = "mb-4 p-4 bg-zinc-900 rounded-xl border border-zinc-800";
         statsEl.innerHTML = `
             <h3 class="text-lg font-bold text-white mb-4">Engagement Analysis</h3>
             <div class="grid grid-cols-2 gap-4 mb-6" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
@@ -849,7 +849,7 @@ async function exportLongImage() {
             msgEl.innerHTML = `
                 <div class="flex flex-col gap-1 max-w-[85%]">
                      <div class="text-[10px] text-zinc-500 px-1 ${isMe ? 'text-right' : 'text-left'}">${turn.speaker}</div>
-                     <div style="background-color: ${bgColor}; color: ${textColor}; border-radius: ${borderRadius}; padding: 4px 12px 10px 12px; font-size: 14px; white-space: pre-wrap; line-height: 1.5;">${turn.message}</div>
+                     <div style="background-color: ${bgColor}; color: ${textColor}; border-radius: ${borderRadius}; padding: 0px 12px 10px 12px; font-size: 14px; white-space: pre-wrap; line-height: 1.5;">${turn.message}</div>
                      ${scoreDisplay}
                 </div>
             `;
