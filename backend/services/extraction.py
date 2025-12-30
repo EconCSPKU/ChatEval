@@ -9,23 +9,27 @@ load_dotenv()
 # OpenRouter Configuration
 API_KEY = os.getenv("OPENROUTER_API_KEY")
 BASE_URL = "https://openrouter.ai/api/v1"
-MODEL_PATH = "google/gemini-2.5-flash-lite" # Fast & Multimodal
+MODEL_PATH = "google/gemini-2.5-flash-lite-preview-02-05" # Fast & Multimodal
 
-Prompt_Template = """Please extract the chat history from the provided image(s) into a JSON list.
-1. Identify speakers by their bubble color or position (e.g., "Right/Green" is usually "Me", "Left/White/Gray" is "Them").
-2. Ignore background wallpapers/images. Focus on the chat bubbles and text.
-3. If a message is a sticker, emoji, or image without text, output "[Sticker]" or a brief description in brackets.
-4. Ignore system messages (like timestamps, "Today", "read").
+# System Prompt: Defines role and strict rules
+System_Prompt = """You are a specialized OCR engine for chat screenshots.
+Your task: Extract the dialogue history into a strict JSON list.
 
-Note: The image might be compressed. Rely on the relative position (Left vs Right) as the primary indicator for speakers, and color as a secondary confirmation.
+**CRITICAL SPEAKER IDENTIFICATION RULES:**
+1. **Me**: Bubbles aligned to the **RIGHT** side. (Often Green/Blue/Dark)
+2. **Them**: Bubbles aligned to the **LEFT** side. (Often White/Gray)
+*Focus primarily on horizontal alignment (Left vs Right).*
 
-Return ONLY a valid JSON array of objects with "speaker" (mapped to "Me" or "Them" if possible, otherwise describe it) and "message".
+**EXTRACTION RULES:**
+- **Exact Text**: Transcribe message content exactly as seen.
+- **Stickers/Images**: Use "[Sticker]" or "[Image]" if no text is present.
+- **Voice**: Use "[Voice Message]" for audio bubbles.
+- **EXCLUDE**: Timestamps (e.g., "10:30 AM"), Dates ("Yesterday"), System notices ("You recalled a message"), Battery/Signal icons.
+
+**OUTPUT FORMAT:**
+Return raw JSON array ONLY. No markdown. No explanations.
 Example:
-[
-  {"speaker": "Me", "message": "Hello"},
-  {"speaker": "Them", "message": "Hi there!"},
-  {"speaker": "Them", "message": "[Sticker]"}
-]
+[{"speaker": "Me", "message": "Hi"}, {"speaker": "Them", "message": "Hello"}]
 """
 
 # Initialize client with OpenRouter specific headers
@@ -33,7 +37,7 @@ client = AsyncOpenAI(
     api_key=API_KEY, 
     base_url=BASE_URL,
     default_headers={
-        "HTTP-Referer": "https://chateval.app", # Replace with actual site URL
+        "HTTP-Referer": "https://chateval.app", 
         "X-Title": "ChatEval"
     }
 )
@@ -42,18 +46,18 @@ async def extract_chat_from_images(base64_images):
     if not base64_images:
         return None
 
+    # Construct messages with System Prompt for better adherence
     messages = [
+        {"role": "system", "content": System_Prompt},
         {
             "role": "user",
             "content": [
-                {"type": "text", "text": Prompt_Template},
+                {"type": "text", "text": "Extract chat from these images:"},
             ] +
             [
                 {
                     "type": "image_url",
                     "image_url": {
-                        # If the client sends full Data URL (e.g. data:image/webp;base64,...), use it directly.
-                        # Otherwise assume it's raw base64 and default to webp (since frontend sends webp).
                         "url": img if img.startswith("data:") else f"data:image/webp;base64,{img}",
                     },
                 } for img in base64_images
@@ -61,12 +65,14 @@ async def extract_chat_from_images(base64_images):
         }
     ]
 
-    # Only try once as requested to reduce server load/latency
+    # Only try once
     for attempt in range(1):
         try:
             response = await client.chat.completions.create(
                 model=MODEL_PATH,
                 messages=messages,
+                # temperature=0.1 helps with determinism for extraction tasks
+                temperature=0.1, 
             )
             chat_content = response.choices[0].message.content
             if chat_content:
