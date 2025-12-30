@@ -778,17 +778,54 @@ async function exportLongImage() {
     document.body.appendChild(tempContainer);
     
     try {
-        // 1. Header
+        // 1. Header with Link
         const header = document.createElement('div');
         header.innerHTML = `
-            <div class="flex items-center gap-2 mb-6 border-b border-zinc-800 pb-4">
-                <div class="text-xl font-semibold text-white">ChatEval Analysis</div>
-                <div class="ml-auto text-xs text-zinc-500">${new Date().toLocaleDateString()}</div>
+            <div class="flex flex-col gap-1 mb-6 border-b border-zinc-800 pb-4">
+                <div class="flex items-center justify-between">
+                    <div class="text-xl font-semibold text-white">ChatEval Analysis</div>
+                    <div class="text-xs text-zinc-500">${new Date().toLocaleDateString()}</div>
+                </div>
+                <div class="text-sm text-primary font-medium">chat.elicit.info</div>
             </div>
         `;
         tempContainer.appendChild(header);
 
-        // 2. Chat Messages
+        // 2. Analysis Stats (Moved to Top)
+        const avg = document.getElementById('avg-score').textContent;
+        const count = document.getElementById('turn-count').textContent;
+        
+        const statsEl = document.createElement('div');
+        statsEl.className = "mb-8 p-4 bg-zinc-900 rounded-xl border border-zinc-800";
+        statsEl.innerHTML = `
+            <h3 class="text-lg font-bold text-white mb-4">Engagement Analysis</h3>
+            <div class="grid grid-cols-2 gap-4 mb-6" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div class="p-4 bg-zinc-800 rounded-lg">
+                    <div class="text-sm text-zinc-400">Average Score</div>
+                    <div class="text-2xl font-bold text-white mt-1">${avg}</div>
+                </div>
+                <div class="p-4 bg-zinc-800 rounded-lg">
+                    <div class="text-sm text-zinc-400">Turn Count</div>
+                    <div class="text-2xl font-bold text-white mt-1">${count}</div>
+                </div>
+            </div>
+        `;
+        
+        // Chart
+        if (chartInstance) {
+            const chartImg = document.createElement('img');
+            chartImg.src = chartInstance.toBase64Image();
+            chartImg.className = "w-full bg-zinc-900 rounded-lg p-2";
+            chartImg.style.backgroundColor = '#18181b'; // Ensure dark bg
+            statsEl.appendChild(chartImg);
+        }
+        
+        tempContainer.appendChild(statsEl);
+
+        // 3. Chat Messages (Moved to Bottom)
+        const chatListEl = document.createElement('div');
+        chatListEl.className = "flex flex-col w-full";
+        
         currentChatData.forEach(turn => {
             const isMe = turn.speaker === 'Me' || turn.speaker === 'A' || turn.speaker.includes('Right');
             const alignClass = isMe ? 'justify-end' : 'justify-start';
@@ -812,44 +849,18 @@ async function exportLongImage() {
             msgEl.innerHTML = `
                 <div class="flex flex-col gap-1 max-w-[85%]">
                      <div class="text-[10px] text-zinc-500 px-1 ${isMe ? 'text-right' : 'text-left'}">${turn.speaker}</div>
-                     <div style="background-color: ${bgColor}; color: ${textColor}; border-radius: ${borderRadius}; padding: 8px 12px 16px 12px; font-size: 14px; white-space: pre-wrap; line-height: 20px;">${turn.message}</div>
+                     <div style="background-color: ${bgColor}; color: ${textColor}; border-radius: ${borderRadius}; padding: 12px; font-size: 14px; white-space: pre-wrap; line-height: 1.5;">${turn.message}</div>
                      ${scoreDisplay}
                 </div>
             `;
-            tempContainer.appendChild(msgEl);
+            chatListEl.appendChild(msgEl);
         });
         
-        // 3. Analysis Stats
-        const avg = document.getElementById('avg-score').textContent;
-        const count = document.getElementById('turn-count').textContent;
+        tempContainer.appendChild(chatListEl);
         
-        const statsEl = document.createElement('div');
-        statsEl.className = "mt-8 p-4 bg-zinc-900 rounded-xl border border-zinc-800";
-        statsEl.innerHTML = `
-            <h3 class="text-lg font-bold text-white mb-4">Engagement Analysis</h3>
-            <div class="grid grid-cols-2 gap-4 mb-6" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-                <div class="p-4 bg-zinc-800 rounded-lg">
-                    <div class="text-sm text-zinc-400">Average Score</div>
-                    <div class="text-2xl font-bold text-white mt-1">${avg}</div>
-                </div>
-                <div class="p-4 bg-zinc-800 rounded-lg">
-                    <div class="text-sm text-zinc-400">Turn Count</div>
-                    <div class="text-2xl font-bold text-white mt-1">${count}</div>
-                </div>
-            </div>
-        `;
-        
-        // 4. Chart (Convert to Image)
-        if (chartInstance) {
-            const chartImg = document.createElement('img');
-            chartImg.src = chartInstance.toBase64Image();
-            chartImg.className = "w-full bg-zinc-900 rounded-lg p-2";
-            chartImg.style.backgroundColor = '#18181b'; // Ensure dark bg
-            statsEl.appendChild(chartImg);
-        }
-        
-        tempContainer.appendChild(statsEl);
-        
+        // 4. Footer Link (Optional, but header is good)
+        // ... skipped to keep it clean, header link is sufficient
+
         // 5. Generate Canvas & Download
         // Wait a bit for DOM to settle (though synchronous, sometimes fonts need a tick)
         await new Promise(r => setTimeout(r, 100));
