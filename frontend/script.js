@@ -63,20 +63,24 @@ async function handleFiles(files) {
     if (files.length === 0) return;
     
     setLoading(true, "Compressing & extracting...");
-    const images = [];
     
     try {
-        // Compress images on frontend before upload
-        for (let i = 0; i < files.length; i++) {
-            const base64Str = await compressImage(files[i]);
-            images.push(base64Str);
-        }
+        // Parallel compression
+        const compressionPromises = Array.from(files).map(file => compressImage(file));
+        const compressedBlobs = await Promise.all(compressionPromises);
+
+        const formData = new FormData();
+        compressedBlobs.forEach((blob, index) => {
+            // Append as binary file, rename to .webp
+            const originalName = files[index].name;
+            const newName = originalName.replace(/\.[^/.]+$/, "") + ".webp";
+            formData.append('images', blob, newName);
+        });
         
-        // 1. Extract
+        // 1. Extract (Binary Upload)
         const extractResp = await fetch('/api/extract', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ images: images })
+            body: formData
         });
         
         if (!extractResp.ok) throw new Error("Extraction failed");
@@ -85,15 +89,14 @@ async function handleFiles(files) {
         currentChatData = extractData.chat_data;
         currentConversationId = null; 
         
-        // 2. Render Unified (No scoring yet)
+        // 2. Render Unified
         renderUnifiedChat();
         showChatView();
         
-        // Ensure "Analyze" is visible, "Chart" is placeholder
         document.getElementById('analyze-btn').classList.remove('hidden');
         document.getElementById('chart-placeholder').classList.remove('hidden');
         document.getElementById('scoreChart').classList.add('hidden');
-        document.getElementById('save-btn').classList.add('hidden'); // Hide manual save since we auto-save on analysis
+        document.getElementById('save-btn').classList.add('hidden');
 
     } catch (err) {
         alert("Error: " + err.message);
@@ -104,10 +107,9 @@ async function handleFiles(files) {
 }
 
 /**
- * Compresses image to match backend logic:
- * - Resize to target width 768px (maintain aspect ratio)
- * - Convert to WEBP Base64
- * - Quality 0.65 (fallback to 0.50 if large)
+ * Compresses image to WebP Blob:
+ * - Resize to target width 768px
+ * - Returns Blob (binary) instead of Base64 string for faster upload
  */
 async function compressImage(file) {
     return new Promise((resolve, reject) => {
@@ -134,15 +136,17 @@ async function compressImage(file) {
                 canvas.height = height;
                 ctx.drawImage(img, 0, 0, width, height);
 
-                // Compression logic
-                let dataUrl = canvas.toDataURL('image/webp', 0.65);
-                
-                // Check if large (200KB binary ~= 273000 chars base64)
-                if (dataUrl.length > 273000) {
-                     dataUrl = canvas.toDataURL('image/webp', 0.50);
-                }
-                
-                resolve(dataUrl);
+                // Compression logic -> Blob
+                canvas.toBlob((blob) => {
+                    if (blob.size > 200 * 1024) {
+                         // Retry with lower quality if too large
+                         canvas.toBlob((blob2) => {
+                             resolve(blob2);
+                         }, 'image/webp', 0.50);
+                    } else {
+                        resolve(blob);
+                    }
+                }, 'image/webp', 0.65);
             };
             img.onerror = (err) => reject(err);
         };

@@ -7,6 +7,7 @@ from typing import List, Optional
 import shutil
 import os
 import uuid
+import base64
 from datetime import datetime
 from sqlalchemy.orm import Session
 
@@ -64,14 +65,18 @@ class FeedbackRequest(BaseModel):
     rating: int
     comment: Optional[str] = None
 
-class ExtractRequest(BaseModel):
-    images: List[str]
-
 @app.post("/api/extract")
-async def extract_chat(request: ExtractRequest):
+async def extract_chat(images: List[UploadFile] = File(...)):
     try:
-        # Images are already base64 strings from frontend
-        chat_data = await extract_chat_from_images(request.images)
+        base64_images = []
+        for image in images:
+            # Read bytes directly from memory (no disk IO)
+            content = await image.read()
+            # Convert to base64 string
+            b64_str = base64.b64encode(content).decode('utf-8')
+            base64_images.append(b64_str)
+            
+        chat_data = await extract_chat_from_images(base64_images)
         
         if chat_data is None:
             raise HTTPException(status_code=500, detail="Failed to extract chat from images")

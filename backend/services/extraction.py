@@ -44,8 +44,8 @@ async def extract_chat_from_images(base64_images):
                     "type": "image_url",
                     "image_url": {
                         # If the client sends full Data URL (e.g. data:image/webp;base64,...), use it directly.
-                        # Otherwise assume it's raw base64 and default to jpeg (fallback).
-                        "url": img if img.startswith("data:") else f"data:image/jpeg;base64,{img}",
+                        # Otherwise assume it's raw base64 and default to webp (since frontend sends webp).
+                        "url": img if img.startswith("data:") else f"data:image/webp;base64,{img}",
                     },
                 } for img in base64_images
             ],
