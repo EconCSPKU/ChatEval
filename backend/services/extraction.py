@@ -29,39 +29,8 @@ Example:
 
 client = AsyncOpenAI(api_key=API_KEY, base_url=BASE_URL)
 
-def process_image(image_path):
-    """
-    Reads the image file and encodes it to base64.
-    Compression and resizing are now handled on the frontend.
-    """
-    try:
-        with open(image_path, "rb") as image_file:
-            return base64.b64encode(image_file.read()).decode('utf-8')
-            
-    except Exception as e:
-        print(f"Error processing image {image_path}: {e}")
-        return None
-
-async def extract_chat_from_images(image_paths):
-    base64s = []
-    # We convert all to JPEG
-    
-    # Run blocking file IO in a thread if strictly necessary, but for small files it's ok.
-    # Or better, use aiofiles, but standard open is fine for now as it's fast on SSD.
-    # To be perfectly async safe:
-    loop = asyncio.get_event_loop()
-    
-    for image_path in image_paths:
-        try:
-            # Offload file reading and processing
-            base64_image = await loop.run_in_executor(None, process_image, image_path)
-            if base64_image:
-                base64s.append(base64_image)
-        except Exception as e:
-            print(f"Error encoding image {image_path}: {e}")
-            continue
-    
-    if not base64s:
+async def extract_chat_from_images(base64_images):
+    if not base64_images:
         return None
 
     messages = [
@@ -74,14 +43,17 @@ async def extract_chat_from_images(image_paths):
                 {
                     "type": "image_url",
                     "image_url": {
-                        "url": f"data:image/jpeg;base64,{base64_image}",
+                        # If the client sends full Data URL (e.g. data:image/webp;base64,...), use it directly.
+                        # Otherwise assume it's raw base64 and default to jpeg (fallback).
+                        "url": img if img.startswith("data:") else f"data:image/jpeg;base64,{img}",
                     },
-                } for base64_image in base64s
+                } for img in base64_images
             ],
         }
     ]
 
-    for attempt in range(3):
+    # Only try once as requested to reduce server load/latency
+    for attempt in range(1):
         try:
             response = await client.chat.completions.create(
                 model=MODEL_PATH,

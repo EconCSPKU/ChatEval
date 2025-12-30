@@ -63,19 +63,20 @@ async function handleFiles(files) {
     if (files.length === 0) return;
     
     setLoading(true, "Compressing & extracting...");
-    const formData = new FormData();
+    const images = [];
     
     try {
         // Compress images on frontend before upload
         for (let i = 0; i < files.length; i++) {
-            const compressedFile = await compressImage(files[i]);
-            formData.append('images', compressedFile, files[i].name.replace(/\.[^/.]+$/, "") + ".webp");
+            const base64Str = await compressImage(files[i]);
+            images.push(base64Str);
         }
         
         // 1. Extract
         const extractResp = await fetch('/api/extract', {
             method: 'POST',
-            body: formData
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ images: images })
         });
         
         if (!extractResp.ok) throw new Error("Extraction failed");
@@ -105,7 +106,7 @@ async function handleFiles(files) {
 /**
  * Compresses image to match backend logic:
  * - Resize to target width 768px (maintain aspect ratio)
- * - Convert to WEBP
+ * - Convert to WEBP Base64
  * - Quality 0.65 (fallback to 0.50 if large)
  */
 async function compressImage(file) {
@@ -134,17 +135,14 @@ async function compressImage(file) {
                 ctx.drawImage(img, 0, 0, width, height);
 
                 // Compression logic
-                canvas.toBlob((blob) => {
-                    // Check if large, though in frontend we might just stick to one quality or retry.
-                    // Let's stick to 0.65 as primary, simple and effective.
-                    if (blob.size > 200 * 1024) {
-                         canvas.toBlob((blob2) => {
-                             resolve(blob2);
-                         }, 'image/webp', 0.50);
-                    } else {
-                        resolve(blob);
-                    }
-                }, 'image/webp', 0.65);
+                let dataUrl = canvas.toDataURL('image/webp', 0.65);
+                
+                // Check if large (200KB binary ~= 273000 chars base64)
+                if (dataUrl.length > 273000) {
+                     dataUrl = canvas.toDataURL('image/webp', 0.50);
+                }
+                
+                resolve(dataUrl);
             };
             img.onerror = (err) => reject(err);
         };

@@ -64,31 +64,21 @@ class FeedbackRequest(BaseModel):
     rating: int
     comment: Optional[str] = None
 
+class ExtractRequest(BaseModel):
+    images: List[str]
+
 @app.post("/api/extract")
-async def extract_chat(images: List[UploadFile] = File(...)):
-    temp_dir = "temp_uploads"
-    if not os.path.exists(temp_dir):
-        os.makedirs(temp_dir)
-        
-    file_paths = []
+async def extract_chat(request: ExtractRequest):
     try:
-        for image in images:
-            file_path = os.path.join(temp_dir, f"{uuid.uuid4()}_{image.filename}")
-            with open(file_path, "wb") as buffer:
-                shutil.copyfileobj(image.file, buffer)
-            file_paths.append(file_path)
-            
-        chat_data = await extract_chat_from_images(file_paths)
+        # Images are already base64 strings from frontend
+        chat_data = await extract_chat_from_images(request.images)
         
         if chat_data is None:
             raise HTTPException(status_code=500, detail="Failed to extract chat from images")
             
         return {"chat_data": chat_data}
-    finally:
-        # Cleanup
-        for p in file_paths:
-            if os.path.exists(p):
-                os.remove(p)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/score")
 async def score_chat(request: ScoreRequest):
