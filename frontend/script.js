@@ -841,19 +841,17 @@ async function exportLongImage() {
             
             const borderRadius = isMe ? '18px 18px 4px 18px' : '18px 18px 18px 4px';
             
-            // --- FIX 2: Score 样式调整 ---
-            // margin-top: -4px 把分数强行上提
-            // padding-bottom: 6px 保证气泡底部有呼吸感
             const scoreDisplay = (turn.relevance_score !== null && turn.relevance_score !== undefined)
-                ? `<div class="px-3 text-[10px] text-white/70 text-right" style="padding: 0 12px 6px 0; margin-top: -4px; line-height: 1;">Score: ${turn.relevance_score.toFixed(1)}</div>`
+                ? `<div class="px-3 text-[10px] text-white/70 text-right" style="padding: 0 12px 13px 0; margin-top: -2px; line-height: 1;">Score: ${turn.relevance_score.toFixed(1)}</div>`
                 : '';
                 
             const msgEl = document.createElement('div');
             msgEl.className = `flex ${alignClass} w-full mb-2`;
             
             // --- FIX 1: 文字 Padding 调整 ---
-            // 顶部 1px (抵消下沉), 底部 2px (拉近与 Score 的距离)
-            const textPadding = '2px 12px 6px 12px'; 
+            // 顶部: 5px -> 视觉上等于前端的 8px (pt-2)。(5px + 3px下沉 = 8px)
+            // 底部: 2px -> 留一点缝隙给 Score，主要的底部支撑靠 Score 的 padding。
+            const textPadding = '5px 12px 2px 12px'; 
 
             msgEl.innerHTML = `
                 <div class="flex flex-col gap-1 max-w-[85%] ${isMe ? 'items-end' : 'items-start'}">
