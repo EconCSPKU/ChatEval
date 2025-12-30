@@ -851,7 +851,7 @@ async function exportLongImage() {
             // --- FIX 1: 文字 Padding 调整 ---
             // 顶部: 5px -> 视觉上等于前端的 8px (pt-2)。(5px + 3px下沉 = 8px)
             // 底部: 2px -> 留一点缝隙给 Score，主要的底部支撑靠 Score 的 padding。
-            const textPadding = '5px 12px 8px 12px'; 
+            const textPadding = '4px 12px 12px 12px'; 
 
             msgEl.innerHTML = `
                 <div class="flex flex-col gap-1 max-w-[85%] ${isMe ? 'items-end' : 'items-start'}">
