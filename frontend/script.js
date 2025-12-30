@@ -853,7 +853,7 @@ async function exportLongImage() {
             
             // Padding Logic: 4px top, 12px right, 4px bottom, 12px left
             // This mimics px-3 pt-1 pb-1
-            const textPadding = '4px 12px 4px 12px'; 
+            const textPadding = '4px 12px 12px 12px'; 
 
             msgEl.innerHTML = `
                 <div class="flex flex-col gap-1 max-w-[85%] ${isMe ? 'items-end' : 'items-start'}">
