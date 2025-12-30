@@ -796,15 +796,15 @@ async function exportLongImage() {
         const count = document.getElementById('turn-count').textContent;
         
         const statsEl = document.createElement('div');
-        statsEl.className = "mb-8 p-4 bg-zinc-900 rounded-xl border border-zinc-800";
+        statsEl.className = "mb-8 px-4 pt-2 pb-6 bg-zinc-900 rounded-xl border border-zinc-800";
         statsEl.innerHTML = `
             <h3 class="text-lg font-bold text-white mb-4">Engagement Analysis</h3>
             <div class="grid grid-cols-2 gap-4 mb-6" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-                <div class="p-4 bg-zinc-800 rounded-lg">
+                <div class="px-4 pt-2 pb-6 bg-zinc-800 rounded-lg">
                     <div class="text-sm text-zinc-400">Average Score</div>
                     <div class="text-2xl font-bold text-white mt-1">${avg}</div>
                 </div>
-                <div class="p-4 bg-zinc-800 rounded-lg">
+                <div class="px-4 pt-2 pb-6 bg-zinc-800 rounded-lg">
                     <div class="text-sm text-zinc-400">Turn Count</div>
                     <div class="text-2xl font-bold text-white mt-1">${count}</div>
                 </div>
