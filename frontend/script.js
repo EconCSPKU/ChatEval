@@ -774,7 +774,8 @@ async function exportLongImage() {
     tempContainer.style.display = 'flex';
     tempContainer.style.flexDirection = 'column';
     tempContainer.style.gap = '16px';
-    tempContainer.style.fontFamily = "'Inter', sans-serif";
+    // Use system fonts to ensure consistent baseline rendering in canvas
+    tempContainer.style.fontFamily = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
     document.body.appendChild(tempContainer);
     
     try {
@@ -849,7 +850,7 @@ async function exportLongImage() {
             msgEl.innerHTML = `
                 <div class="flex flex-col gap-1 max-w-[85%]">
                      <div class="text-[10px] text-zinc-500 px-1 ${isMe ? 'text-right' : 'text-left'}">${turn.speaker}</div>
-                     <div style="background-color: ${bgColor}; color: ${textColor}; border-radius: ${borderRadius}; padding: 12px; font-size: 14px; white-space: pre-wrap; line-height: 1.5;">${turn.message}</div>
+                     <div style="background-color: ${bgColor}; color: ${textColor}; border-radius: ${borderRadius}; padding: 8px 12px 10px 12px; font-size: 14px; white-space: pre-wrap; line-height: 1.5;">${turn.message}</div>
                      ${scoreDisplay}
                 </div>
             `;
@@ -867,7 +868,8 @@ async function exportLongImage() {
         
         const canvas = await html2canvas(tempContainer, {
             backgroundColor: '#09090b',
-            scale: 2 // High res
+            scale: 2, // High res
+            useCORS: true
         });
         
         const link = document.createElement('a');
