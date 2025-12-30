@@ -62,13 +62,16 @@ document.addEventListener('DOMContentLoaded', () => {
 async function handleFiles(files) {
     if (files.length === 0) return;
     
-    setLoading(true, "Extracting chat from images...");
+    setLoading(true, "Compressing & extracting...");
     const formData = new FormData();
-    for (let i = 0; i < files.length; i++) {
-        formData.append('images', files[i]);
-    }
     
     try {
+        // Compress images on frontend before upload
+        for (let i = 0; i < files.length; i++) {
+            const compressedFile = await compressImage(files[i]);
+            formData.append('images', compressedFile, files[i].name.replace(/\.[^/.]+$/, "") + ".webp");
+        }
+        
         // 1. Extract
         const extractResp = await fetch('/api/extract', {
             method: 'POST',
@@ -97,6 +100,56 @@ async function handleFiles(files) {
     } finally {
         setLoading(false);
     }
+}
+
+/**
+ * Compresses image to match backend logic:
+ * - Resize to target width 768px (maintain aspect ratio)
+ * - Convert to WEBP
+ * - Quality 0.65 (fallback to 0.50 if large)
+ */
+async function compressImage(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = (event) => {
+            const img = new Image();
+            img.src = event.target.result;
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+
+                // Resize logic
+                const targetWidth = 768;
+                let width = img.width;
+                let height = img.height;
+
+                if (width > targetWidth) {
+                    height = Math.round((targetWidth / width) * height);
+                    width = targetWidth;
+                }
+
+                canvas.width = width;
+                canvas.height = height;
+                ctx.drawImage(img, 0, 0, width, height);
+
+                // Compression logic
+                canvas.toBlob((blob) => {
+                    // Check if large, though in frontend we might just stick to one quality or retry.
+                    // Let's stick to 0.65 as primary, simple and effective.
+                    if (blob.size > 200 * 1024) {
+                         canvas.toBlob((blob2) => {
+                             resolve(blob2);
+                         }, 'image/webp', 0.50);
+                    } else {
+                        resolve(blob);
+                    }
+                }, 'image/webp', 0.65);
+            };
+            img.onerror = (err) => reject(err);
+        };
+        reader.onerror = (err) => reject(err);
+    });
 }
 
 async function analyzeSession() {

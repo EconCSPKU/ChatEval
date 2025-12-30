@@ -3,8 +3,6 @@ import base64
 import json
 import os
 import asyncio
-import io
-from PIL import Image
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -33,33 +31,12 @@ client = AsyncOpenAI(api_key=API_KEY, base_url=BASE_URL)
 
 def process_image(image_path):
     """
-    Optimized for Chat Screenshots:
-    1. Fixes the 'Long Screenshot' bug by resizing based on width only.
-    2. Removes the slow 'while' loop in favor of a direct heuristic approach.
-    3. Keeps file size typically < 150KB while maintaining text clarity.
+    Reads the image file and encodes it to base64.
+    Compression and resizing are now handled on the frontend.
     """
     try:
-        with Image.open(image_path) as img:
-            # Handle transparency/modes
-            if img.mode in ("RGBA", "P"):
-                img = img.convert("RGB")
-            
-            target_width = 768
-            original_width, original_height = img.size
-            
-            if original_width > target_width:
-                aspect_ratio = original_height / original_width
-                new_height = int(target_width * aspect_ratio)
-                img = img.resize((target_width, new_height), Image.Resampling.LANCZOS)
-            
-            buffer = io.BytesIO()
-            img.save(buffer, format="WEBP", quality=65, optimize=True)
-            
-            if buffer.tell() > 200 * 1024:
-                buffer = io.BytesIO()
-                img.save(buffer, format="WEBP", quality=50, optimize=True)
-
-            return base64.b64encode(buffer.getvalue()).decode('utf-8')
+        with open(image_path, "rb") as image_file:
+            return base64.b64encode(image_file.read()).decode('utf-8')
             
     except Exception as e:
         print(f"Error processing image {image_path}: {e}")
