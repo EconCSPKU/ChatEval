@@ -777,13 +777,16 @@ async function exportLongImage() {
     tempContainer.style.fontFamily = "'Inter', sans-serif";
     document.body.appendChild(tempContainer);
     
+    // CSS fix for html2canvas text vertical alignment issue
+    const fixStyle = "display: inline-block; transform: translateY(-3px);";
+    
     try {
         // 1. Header
         const header = document.createElement('div');
         header.innerHTML = `
             <div class="flex items-center gap-2 mb-6 border-b border-zinc-800 pb-4">
-                <div class="text-xl font-semibold text-white">ChatEval Analysis</div>
-                <div class="ml-auto text-xs text-zinc-500">${new Date().toLocaleDateString()}</div>
+                <div class="text-xl font-semibold text-white"><span style="${fixStyle}">ChatEval Analysis</span></div>
+                <div class="ml-auto text-xs text-zinc-500"><span style="${fixStyle}">${new Date().toLocaleDateString()}</span></div>
             </div>
         `;
         tempContainer.appendChild(header);
@@ -804,15 +807,15 @@ async function exportLongImage() {
             
             const borderRadius = isMe ? '18px 18px 4px 18px' : '18px 18px 18px 4px';
             const scoreDisplay = (turn.relevance_score !== null && turn.relevance_score !== undefined)
-                ? `<div class="px-3 pb-1 text-[10px] text-white/70 text-right">Score: ${turn.relevance_score.toFixed(1)}</div>`
+                ? `<div class="px-3 pb-1 text-[10px] text-white/70 text-right"><span style="${fixStyle}">Score: ${turn.relevance_score.toFixed(1)}</span></div>`
                 : '';
                 
             const msgEl = document.createElement('div');
             msgEl.className = `flex ${alignClass} w-full mb-2`;
             msgEl.innerHTML = `
                 <div class="flex flex-col gap-1 max-w-[85%]">
-                     <div class="text-[10px] text-zinc-500 px-1 ${isMe ? 'text-right' : 'text-left'}">${turn.speaker}</div>
-                     <div style="background-color: ${bgColor}; color: ${textColor}; border-radius: ${borderRadius}; padding: 12px; font-size: 14px; white-space: pre-wrap; line-height: 1.5;">${turn.message}</div>
+                     <div class="text-[10px] text-zinc-500 px-1 ${isMe ? 'text-right' : 'text-left'}"><span style="${fixStyle}">${turn.speaker}</span></div>
+                     <div style="background-color: ${bgColor}; color: ${textColor}; border-radius: ${borderRadius}; padding: 12px; font-size: 14px; white-space: pre-wrap; line-height: 1.5;"><span style="${fixStyle}">${turn.message}</span></div>
                      ${scoreDisplay}
                 </div>
             `;
@@ -826,15 +829,15 @@ async function exportLongImage() {
         const statsEl = document.createElement('div');
         statsEl.className = "mt-8 p-4 bg-zinc-900 rounded-xl border border-zinc-800";
         statsEl.innerHTML = `
-            <h3 class="text-lg font-bold text-white mb-4">Engagement Analysis</h3>
+            <h3 class="text-lg font-bold text-white mb-4"><span style="${fixStyle}">Engagement Analysis</span></h3>
             <div class="grid grid-cols-2 gap-4 mb-6" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
                 <div class="p-4 bg-zinc-800 rounded-lg">
-                    <div class="text-sm text-zinc-400">Average Score</div>
-                    <div class="text-2xl font-bold text-white mt-1">${avg}</div>
+                    <div class="text-sm text-zinc-400"><span style="${fixStyle}">Average Score</span></div>
+                    <div class="text-2xl font-bold text-white mt-1"><span style="${fixStyle}">${avg}</span></div>
                 </div>
                 <div class="p-4 bg-zinc-800 rounded-lg">
-                    <div class="text-sm text-zinc-400">Turn Count</div>
-                    <div class="text-2xl font-bold text-white mt-1">${count}</div>
+                    <div class="text-sm text-zinc-400"><span style="${fixStyle}">Turn Count</span></div>
+                    <div class="text-2xl font-bold text-white mt-1"><span style="${fixStyle}">${count}</span></div>
                 </div>
             </div>
         `;
