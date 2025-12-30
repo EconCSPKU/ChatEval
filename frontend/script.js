@@ -770,7 +770,7 @@ async function exportLongImage() {
     tempContainer.style.top = '0';
     tempContainer.style.width = '480px'; // Mobile-ish width
     tempContainer.style.backgroundColor = '#09090b';
-    tempContainer.style.padding = '12px 24px 24px 24px';
+    tempContainer.style.padding = '8px 24px 24px 24px';
     tempContainer.style.display = 'flex';
     tempContainer.style.flexDirection = 'column';
     tempContainer.style.gap = '16px';
@@ -781,7 +781,7 @@ async function exportLongImage() {
         // 1. Header with Link
         const header = document.createElement('div');
         header.innerHTML = `
-            <div class="flex flex-col gap-1 mb-6 border-b border-zinc-800 pb-4">
+            <div class="flex flex-col gap-1 mb-4 border-b border-zinc-800 pb-2">
                 <div class="flex items-center justify-between">
                     <div class="text-xl font-semibold text-white">ChatEval Analysis</div>
                     <div class="text-xs text-zinc-500">${new Date().toLocaleDateString()}</div>
@@ -849,7 +849,7 @@ async function exportLongImage() {
             msgEl.innerHTML = `
                 <div class="flex flex-col gap-1 max-w-[85%]">
                      <div class="text-[10px] text-zinc-500 px-1 ${isMe ? 'text-right' : 'text-left'}">${turn.speaker}</div>
-                     <div style="background-color: ${bgColor}; color: ${textColor}; border-radius: ${borderRadius}; padding: 6px 12px 10px 12px; font-size: 14px; white-space: pre-wrap; line-height: 1.5;">${turn.message}</div>
+                     <div style="background-color: ${bgColor}; color: ${textColor}; border-radius: ${borderRadius}; padding: 4px 12px 10px 12px; font-size: 14px; white-space: pre-wrap; line-height: 1.5;">${turn.message}</div>
                      ${scoreDisplay}
                 </div>
             `;
