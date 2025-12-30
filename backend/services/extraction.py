@@ -21,10 +21,15 @@ Your task: Extract the dialogue history into a strict JSON list.
 *Focus primarily on horizontal alignment (Left vs Right).*
 
 **EXTRACTION RULES:**
-- **Exact Text**: Transcribe message content exactly as seen.
+- **Exact Text**: Transcribe the MAIN message content exactly as seen.
 - **Stickers/Images**: Use "[Sticker]" or "[Image]" if no text is present.
 - **Voice**: Use "[Voice Message]" for audio bubbles.
-- **EXCLUDE**: Timestamps (e.g., "10:30 AM"), Dates ("Yesterday"), System notices ("You recalled a message"), Battery/Signal icons.
+- **EXCLUDE (Strictly)**:
+  - Timestamps (e.g., "10:30 AM", "Yesterday").
+  - System notices ("You recalled a message").
+  - Battery/Signal icons, App headers.
+  - **Quoted/Reply Text**: Often smaller, gray text appearing immediately below the main message (e.g., "Replied to: ..."). IGNORE THIS.
+  - **Auxiliary Text**: Small gray notes like "Translated by WeChat" or "Original Text". IGNORE THIS.
 
 **OUTPUT FORMAT:**
 Return raw JSON array ONLY. No markdown. No explanations.
