@@ -26,6 +26,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
     <style>
         body { font-family: 'Inter', sans-serif; background-color: #09090b; color: #e4e4e7; }
         .scrollbar-hide::-webkit-scrollbar { display: none; }
@@ -155,6 +156,10 @@
 
                         <button onclick="saveSession()" id="save-btn" class="hidden w-full py-2.5 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2">
                             <i class="ph-bold ph-floppy-disk"></i> Save to History
+                        </button>
+
+                        <button onclick="exportLongImage()" id="export-btn" class="hidden w-full py-2.5 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2">
+                            <i class="ph-bold ph-image"></i> Save as Image
                         </button>
                     </div>
                 </div>
