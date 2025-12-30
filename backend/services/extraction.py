@@ -2,6 +2,7 @@ from openai import AsyncOpenAI
 import base64
 import json
 import os
+import time
 import asyncio
 from dotenv import load_dotenv
 load_dotenv()
@@ -55,10 +56,17 @@ async def extract_chat_from_images(base64_images):
     # Only try once as requested to reduce server load/latency
     for attempt in range(1):
         try:
+            t0 = time.time()
+            print(f"DEBUG: Sending request to LLM (Attempt {attempt+1})...")
+            
             response = await client.chat.completions.create(
                 model=MODEL_PATH,
                 messages=messages,
             )
+            
+            t1 = time.time()
+            print(f"DEBUG: LLM Response received in {t1 - t0:.2f}s")
+            
             chat_content = response.choices[0].message.content
             if chat_content:
                 # Cleaning markdown code blocks if present
