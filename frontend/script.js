@@ -769,7 +769,7 @@ async function exportLongImage() {
     tempContainer.style.left = '-9999px';
     tempContainer.style.top = '0';
     tempContainer.style.width = '480px'; // Mobile-ish width
-    tempContainer.style.backgroundColor = '#09090b';
+    tempContainer.style.backgroundColor = '#09090b'; // Zinc-950
     tempContainer.style.padding = '24px';
     tempContainer.style.display = 'flex';
     tempContainer.style.flexDirection = 'column';
@@ -791,7 +791,7 @@ async function exportLongImage() {
         `;
         tempContainer.appendChild(header);
 
-        // 2. Analysis Stats (Moved to Top)
+        // 2. Analysis Stats
         const avg = document.getElementById('avg-score').textContent;
         const count = document.getElementById('turn-count').textContent;
         
@@ -816,19 +816,21 @@ async function exportLongImage() {
             const chartImg = document.createElement('img');
             chartImg.src = chartInstance.toBase64Image();
             chartImg.className = "w-full bg-zinc-900 rounded-lg p-2";
-            chartImg.style.backgroundColor = '#18181b'; // Ensure dark bg
+            chartImg.style.backgroundColor = '#18181b'; 
             statsEl.appendChild(chartImg);
         }
         
         tempContainer.appendChild(statsEl);
 
-        // 3. Chat Messages (Moved to Bottom)
+        // 3. Chat Messages (FIXED SECTION)
         const chatListEl = document.createElement('div');
         chatListEl.className = "flex flex-col w-full";
         
         currentChatData.forEach(turn => {
             const isMe = turn.speaker === 'Me' || turn.speaker === 'A' || turn.speaker.includes('Right');
             const alignClass = isMe ? 'justify-end' : 'justify-start';
+            
+            // Colors matching renderUnifiedChat
             let bgColor = '#27272a';
             let textColor = '#e4e4e7';
             
@@ -840,17 +842,29 @@ async function exportLongImage() {
             }
             
             const borderRadius = isMe ? '18px 18px 4px 18px' : '18px 18px 18px 4px';
+            
+            // Score Display with consistent padding
             const scoreDisplay = (turn.relevance_score !== null && turn.relevance_score !== undefined)
-                ? `<div class="px-3 pb-1 text-[10px] text-white/70 text-right">Score: ${turn.relevance_score.toFixed(1)}</div>`
+                ? `<div class="px-3 pb-1 text-[10px] text-white/70 text-right" style="padding: 0 12px 4px 0;">Score: ${turn.relevance_score.toFixed(1)}</div>`
                 : '';
                 
             const msgEl = document.createElement('div');
             msgEl.className = `flex ${alignClass} w-full mb-2`;
+            
+            // Padding Logic: 4px top, 12px right, 4px bottom, 12px left
+            // This mimics px-3 pt-1 pb-1
+            const textPadding = '4px 12px 4px 12px'; 
+
             msgEl.innerHTML = `
-                <div class="flex flex-col gap-1 max-w-[85%]">
+                <div class="flex flex-col gap-1 max-w-[85%] ${isMe ? 'items-end' : 'items-start'}">
                      <div class="text-[10px] text-zinc-500 px-1 ${isMe ? 'text-right' : 'text-left'}">${turn.speaker}</div>
-                     <div style="background-color: ${bgColor}; color: ${textColor}; border-radius: ${borderRadius}; padding: 12px; font-size: 14px; white-space: pre-wrap; line-height: 1.5;">${turn.message}</div>
-                     ${scoreDisplay}
+                     
+                     <div style="background-color: ${bgColor}; color: ${textColor}; border-radius: ${borderRadius}; overflow: hidden; min-width: 60px;">
+                        
+                        <div style="padding: ${textPadding}; font-size: 14px; white-space: pre-wrap; line-height: 1.625;">${turn.message}</div>
+                        
+                        ${scoreDisplay}
+                     </div>
                 </div>
             `;
             chatListEl.appendChild(msgEl);
@@ -858,11 +872,7 @@ async function exportLongImage() {
         
         tempContainer.appendChild(chatListEl);
         
-        // 4. Footer Link (Optional, but header is good)
-        // ... skipped to keep it clean, header link is sufficient
-
-        // 5. Generate Canvas & Download
-        // Wait a bit for DOM to settle (though synchronous, sometimes fonts need a tick)
+        // Wait for fonts/styles to settle
         await new Promise(r => setTimeout(r, 100));
         
         const canvas = await html2canvas(tempContainer, {
