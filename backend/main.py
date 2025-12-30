@@ -8,7 +8,6 @@ import shutil
 import os
 import uuid
 import base64
-import time
 from datetime import datetime
 from sqlalchemy.orm import Session
 
@@ -68,10 +67,7 @@ class FeedbackRequest(BaseModel):
 
 @app.post("/api/extract")
 async def extract_chat(images: List[UploadFile] = File(...)):
-    start_time = time.time()
     try:
-        # 1. Read & Convert
-        t_read_start = time.time()
         base64_images = []
         for image in images:
             # Read bytes directly from memory (no disk IO)
@@ -79,24 +75,14 @@ async def extract_chat(images: List[UploadFile] = File(...)):
             # Convert to base64 string
             b64_str = base64.b64encode(content).decode('utf-8')
             base64_images.append(b64_str)
-        t_read_end = time.time()
-        print(f"DEBUG: Read & Base64 conversion took {t_read_end - t_read_start:.3f}s for {len(images)} images")
             
-        # 2. Extract
-        t_extract_start = time.time()
         chat_data = await extract_chat_from_images(base64_images)
-        t_extract_end = time.time()
-        print(f"DEBUG: Total Extraction Service took {t_extract_end - t_extract_start:.3f}s")
         
         if chat_data is None:
             raise HTTPException(status_code=500, detail="Failed to extract chat from images")
             
-        total_time = time.time() - start_time
-        print(f"DEBUG: Total API Request took {total_time:.3f}s")
-        
-        return {"chat_data": chat_data, "debug_meta": {"time_taken": total_time}}
+        return {"chat_data": chat_data}
     except Exception as e:
-        print(f"ERROR: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/score")

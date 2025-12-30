@@ -2,14 +2,14 @@ from openai import AsyncOpenAI
 import base64
 import json
 import os
-import time
 import asyncio
 from dotenv import load_dotenv
 load_dotenv()
 
-API_KEY = os.getenv("VOLC_API_KEY")
-BASE_URL = os.getenv("VOLC_BASE_URL")
-MODEL_PATH = "doubao-seed-1-6-lite-251015" # Model name for chat completion
+# OpenRouter Configuration
+API_KEY = os.getenv("OPENROUTER_API_KEY")
+BASE_URL = "https://openrouter.ai/api/v1"
+MODEL_PATH = "google/gemini-2.5-flash-lite" # Fast & Multimodal
 
 Prompt_Template = """Please extract the chat history from the provided image(s) into a JSON list.
 1. Identify speakers by their bubble color or position (e.g., "Right/Green" is usually "Me", "Left/White/Gray" is "Them").
@@ -28,7 +28,15 @@ Example:
 ]
 """
 
-client = AsyncOpenAI(api_key=API_KEY, base_url=BASE_URL)
+# Initialize client with OpenRouter specific headers
+client = AsyncOpenAI(
+    api_key=API_KEY, 
+    base_url=BASE_URL,
+    default_headers={
+        "HTTP-Referer": "https://chateval.app", # Replace with actual site URL
+        "X-Title": "ChatEval"
+    }
+)
 
 async def extract_chat_from_images(base64_images):
     if not base64_images:
@@ -56,17 +64,10 @@ async def extract_chat_from_images(base64_images):
     # Only try once as requested to reduce server load/latency
     for attempt in range(1):
         try:
-            t0 = time.time()
-            print(f"DEBUG: Sending request to LLM (Attempt {attempt+1})...")
-            
             response = await client.chat.completions.create(
                 model=MODEL_PATH,
                 messages=messages,
             )
-            
-            t1 = time.time()
-            print(f"DEBUG: LLM Response received in {t1 - t0:.2f}s")
-            
             chat_content = response.choices[0].message.content
             if chat_content:
                 # Cleaning markdown code blocks if present

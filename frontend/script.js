@@ -65,11 +65,9 @@ async function handleFiles(files) {
     setLoading(true, "Compressing & extracting...");
     
     try {
-        console.time("Compression");
         // Parallel compression
         const compressionPromises = Array.from(files).map(file => compressImage(file));
         const compressedBlobs = await Promise.all(compressionPromises);
-        console.timeEnd("Compression");
 
         const formData = new FormData();
         compressedBlobs.forEach((blob, index) => {
@@ -80,12 +78,10 @@ async function handleFiles(files) {
         });
         
         // 1. Extract (Binary Upload)
-        console.time("Upload & Extract API");
         const extractResp = await fetch('/api/extract', {
             method: 'POST',
             body: formData
         });
-        console.timeEnd("Upload & Extract API");
         
         if (!extractResp.ok) throw new Error("Extraction failed");
         const extractData = await extractResp.json();
