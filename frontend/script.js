@@ -825,12 +825,10 @@ async function exportLongImage() {
         // 3. Chat Messages (FIXED SECTION)
         const chatListEl = document.createElement('div');
         chatListEl.className = "flex flex-col w-full";
-        
         currentChatData.forEach(turn => {
             const isMe = turn.speaker === 'Me' || turn.speaker === 'A' || turn.speaker.includes('Right');
             const alignClass = isMe ? 'justify-end' : 'justify-start';
             
-            // Colors matching renderUnifiedChat
             let bgColor = '#27272a';
             let textColor = '#e4e4e7';
             
@@ -843,26 +841,26 @@ async function exportLongImage() {
             
             const borderRadius = isMe ? '18px 18px 4px 18px' : '18px 18px 18px 4px';
             
-            // Score Display with consistent padding
+            // --- FIX 2: Score 样式调整 ---
+            // margin-top: -4px 把分数强行上提
+            // padding-bottom: 6px 保证气泡底部有呼吸感
             const scoreDisplay = (turn.relevance_score !== null && turn.relevance_score !== undefined)
-                ? `<div class="px-3 pb-1 text-[10px] text-white/70 text-right" style="padding: 0 12px 4px 0;">Score: ${turn.relevance_score.toFixed(1)}</div>`
+                ? `<div class="px-3 text-[10px] text-white/70 text-right" style="padding: 0 12px 6px 0; margin-top: -4px; line-height: 1;">Score: ${turn.relevance_score.toFixed(1)}</div>`
                 : '';
                 
             const msgEl = document.createElement('div');
             msgEl.className = `flex ${alignClass} w-full mb-2`;
             
-            // Padding Logic: 4px top, 12px right, 4px bottom, 12px left
-            // This mimics px-3 pt-1 pb-1
-            const textPadding = '4px 12px 12px 12px'; 
+            // --- FIX 1: 文字 Padding 调整 ---
+            // 顶部 1px (抵消下沉), 底部 2px (拉近与 Score 的距离)
+            const textPadding = '2px 12px 6px 12px'; 
 
             msgEl.innerHTML = `
                 <div class="flex flex-col gap-1 max-w-[85%] ${isMe ? 'items-end' : 'items-start'}">
                      <div class="text-[10px] text-zinc-500 px-1 ${isMe ? 'text-right' : 'text-left'}">${turn.speaker}</div>
                      
                      <div style="background-color: ${bgColor}; color: ${textColor}; border-radius: ${borderRadius}; overflow: hidden; min-width: 60px;">
-                        
-                        <div style="padding: ${textPadding}; font-size: 14px; white-space: pre-wrap; line-height: 1.625;">${turn.message}</div>
-                        
+                        <div style="padding: ${textPadding}; font-size: 14px; white-space: pre-wrap; line-height: 23px;">${turn.message}</div>
                         ${scoreDisplay}
                      </div>
                 </div>
